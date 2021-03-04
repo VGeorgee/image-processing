@@ -48,10 +48,6 @@ int main(int argc, char **argv)
     SAVE_IMAGE("output/histogram-equalized.jpg", histogram_equalized_img, gray_channels);
 
     ALLOCATE_BUFFER(median_fileter_image, gray_img_size);
-    printf("asd\n");
-    //PIXEL_TYPE image[HEIGHT][WIDTH];
-    //convert_image_to_2_dimension(image, gray_img, ctx);
-    printf("asd\n");
     median_filter(median_fileter_image, gray_img, ctx);
     SAVE_IMAGE("output/median-filtered.jpg", median_fileter_image, gray_channels);
 
