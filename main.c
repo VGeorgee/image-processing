@@ -33,6 +33,7 @@ int main(int argc, char **argv)
     int gray_channels = CHANNELS == 4 ? 2 : 1;
     size_t gray_img_size = SIZE * gray_channels;
 
+
     ALLOCATE_BUFFER(gray_img, gray_img_size);
     convert_to_grayscale(gray_img, img, ctx);
     SAVE_IMAGE("output/gray-scaled.jpg", gray_img, gray_channels);
@@ -46,6 +47,13 @@ int main(int argc, char **argv)
     histogram_equalization(histogram_equalized_img, gray_img, ctx);
     SAVE_IMAGE("output/histogram-equalized.jpg", histogram_equalized_img, gray_channels);
 
+    ALLOCATE_BUFFER(median_fileter_image, gray_img_size);
+    printf("asd\n");
+    //PIXEL_TYPE image[HEIGHT][WIDTH];
+    //convert_image_to_2_dimension(image, gray_img, ctx);
+    printf("asd\n");
+    median_filter(median_fileter_image, gray_img, ctx);
+    SAVE_IMAGE("output/median-filtered.jpg", median_fileter_image, gray_channels);
 
     free(treshold_buffer);
     free(gray_img);
@@ -53,7 +61,6 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
 
 
 void convert_to_grayscale(PIXEL_ARRAY target_buffer, PIXEL_ARRAY original_image, IMAGE_CONTEXT ctx){
@@ -69,62 +76,47 @@ PIXEL_TYPE calculate_grayscale_value(PIXEL_ARRAY pixel){
 }
 
 
-void treshold_image(PIXEL_ARRAY target_buffer, PIXEL_ARRAY original_image, IMAGE_CONTEXT ctx){
-    int treshold[] = {60, 80, 100, -1};
-    int map[] = {0, 80, 160, 255, -1};
+PROCEDURE(treshold_image){
+    INT_ARRAY(treshold, 60, 80, 100, -1);
+    INT_ARRAY(map, 0, 80, 160, 255, -1);
 
     ITERATE_IMAGE {
-        SET(VALUE(POST_INCREMENT(target_buffer)), get_treshold_mapping(treshold, map, PIXEL_OF_ITERATION(original_image)));
+        SET(VALUE(POST_INCREMENT(target)), map_treshold(treshold, map, PIXEL_OF_ITERATION(original)));
     }
 }
 
-int get_treshold_mapping(int *treshold_values, int *treshold_map, int value_to_classify){
-    if(treshold_values[0] > value_to_classify){
-        return treshold_map[0];
-    }
-    int i;
-    for(i = 1;treshold_values[i] != -1 && (treshold_values[i] < value_to_classify); i++);
 
-    return treshold_map[i];
-}
-
-
-
-
-PIXEL_TYPE calculate_equalization(int value, int size){
-    return ((((double)DISTINCT_BYTE_VALUES - 1) / size) * value);
-}
-void histogram_equalization(PIXEL_ARRAY target_buffer, PIXEL_ARRAY grayscale_image, IMAGE_CONTEXT ctx){
-    ZEROED_ARRAY(int, histogram, DISTINCT_BYTE_VALUES);
+PROCEDURE(histogram_equalization){
+    ZEROED_ARRAY(histogram, DISTINCT_BYTE_VALUES);
 
     ITERATE_IMAGE {
-        INCREMENT(histogram[PIXEL_OF_ITERATION(grayscale_image)]);
+        INCREMENT(histogram[PIXEL_OF_ITERATION(original)]);
     }
 
-    ZEROED_ARRAY(int, target_color, DISTINCT_BYTE_VALUES);
+    ZEROED_ARRAY(target_color, DISTINCT_BYTE_VALUES);
 
     FOR_RANGE(i, 1, DISTINCT_BYTE_VALUES){
-        SET(target_color[i], calculate_equalization(ROLL_SUM_ARRAY(histogram, i), SIZE));
+        SET(target_color[i], calculate_equalization(histogram[i] += histogram[i - 1], SIZE));
     }
 
     ITERATE_IMAGE {
-        SET(PIXEL_OF_ITERATION(target_buffer), target_color[PIXEL_OF_ITERATION(grayscale_image)]);
+        SET(PIXEL_OF_ITERATION(target), target_color[PIXEL_OF_ITERATION(original)]);
     }
 }
 
-int X_OFFSET[] = {-1, -1, -1,  0, 0, 0,  1, 1, 1};
-int Y_OFFSET[] = {-1,  0,  1, -1, 0, 1, -1, 0, 1};
 
-int X_OFFSET_WINDOW_3X3_COLUMN[] = {-1,  0,  1,-1, 0, 1};
-int Y_OFFSET_WINDOW_3X3_COLUMN[] = {-1, -1, -1, 1, 1, 1};
-
-int X_OFFSET_WINDOW_3X3_ROW[] = {-1, -1, -1, 1, 1, 1};
-int Y_OFFSET_WINDOW_3X3_ROW[] = {-1,  0,  1,-1, 0, 1};
-int get_median_3x3(PIXEL_ARRAY median_target, IMAGE_CONTEXT ctx){
-
+PROCEDURE(median_filter){
+    ITERATE_IMAGE {
+        NEW_LIST(medianer, 9);
+        FOR(offset, 9) {
+            int addressed_i = i + X_OFFSET[offset];
+            int addressed_j = j + Y_OFFSET[offset];
+            
+            if(is_in_boundary(addressed_i, addressed_j)){
+                PUSH(medianer,  GET_PIXEL(original, addressed_i, addressed_j));
+            }
+        }
+        SORT(medianer);
+        PIXEL_OF_ITERATION(target) = MEDIAN(medianer);
+    }
 }
-void median_filter(PIXEL_ARRAY target_buffer, PIXEL_ARRAY grayscale_image, IMAGE_CONTEXT ctx){
-
-}
-
-
