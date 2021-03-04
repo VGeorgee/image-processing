@@ -35,25 +35,20 @@ int main(int argc, char **argv)
 
 
     ALLOCATE_BUFFER(gray_img, gray_img_size);
-    convert_to_grayscale(gray_img, img, ctx);
-    SAVE_IMAGE("output/gray-scaled.jpg", gray_img, gray_channels);
+    CALL_PROC(convert_to_grayscale, gray_img, img);
+    SAVE_IMAGE("output/gray-scaled.jpg", gray_img);
 
     CHANNELS = 1;
-    ALLOCATE_BUFFER(treshold_buffer, gray_img_size);
-    treshold_image(treshold_buffer, gray_img, ctx);
-    SAVE_IMAGE("output/tresholded.jpg", treshold_buffer, gray_channels);
 
-    ALLOCATE_BUFFER(histogram_equalized_img, gray_img_size);
-    histogram_equalization(histogram_equalized_img, gray_img, ctx);
-    SAVE_IMAGE("output/histogram-equalized.jpg", histogram_equalized_img, gray_channels);
-
-    ALLOCATE_BUFFER(median_fileter_image, gray_img_size);
-    median_filter(median_fileter_image, gray_img, ctx);
-    SAVE_IMAGE("output/median-filtered.jpg", median_fileter_image, gray_channels);
+    MAKE("output/tresholded.jpg", treshold_buffer, gray_img, treshold_image);
+    MAKE("output/histogram-equalized.jpg", histogram_equalized_img, gray_img, histogram_equalization);
+    MAKE("output/median-filtered.jpg", median_fileter_image, gray_img, median_filter);
+    MAKE("output/binarized.jpg", binarized, gray_img, binarize_image);
 
     free(treshold_buffer);
     free(gray_img);
     free(histogram_equalized_img);
+    free(binarized);
 
     return 0;
 }
@@ -78,6 +73,12 @@ PROCEDURE(treshold_image){
 
     ITERATE_IMAGE {
         SET(VALUE(POST_INCREMENT(target)), map_treshold(treshold, map, PIXEL_OF_ITERATION(original)));
+    }
+}
+
+PROCEDURE(binarize_image){
+    ITERATE_IMAGE{
+        SET(VALUE(POST_INCREMENT(target)), PIXEL_OF_ITERATION(original) > 128 ? 255 : 0);
     }
 }
 

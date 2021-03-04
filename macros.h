@@ -34,10 +34,12 @@ typedef struct image_context {
 #define SET(a, b) (a = b)
 #define TWO_DIM_VALUE(arr, i, j) arr[(i * WIDTH) + j]
 #define is_in_boundary(i, j) (i >= 0 && j >= 0 && i < HEIGHT && j < WIDTH)
-#define ALLOCATE_BUFFER(name, size) unsigned char *name = malloc(size)
-#define SAVE_IMAGE(target, image, channels) stbi_write_jpg(target, WIDTH, HEIGHT, channels, image, 100);
-#define PROCEDURE(name) void name(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx)
+#define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size, 1)
+#define SAVE_IMAGE(target, image) stbi_write_jpg(target, WIDTH, HEIGHT, 1, image, 100);
+#define MAKE(name, target, original, proc) ALLOCATE_BUFFER(target, SIZE);CALL_PROC(proc, target, original);SAVE_IMAGE(name, target);
 
+#define PROCEDURE(name) void name(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx)
+#define CALL_PROC(procedure, target, original) procedure(target, original, ctx)
 #define INT_ARRAY(name, ...) int name[] = {__VA_ARGS__}
 #define ADD(a, b) a += b
 #define DISTINCT_BYTE_VALUES 256
@@ -62,14 +64,6 @@ int cmp(int *a, int *b){
 #define SORT(array) qsort(array, array##_length, sizeof(int), cmp) 
 #define MEDIAN(array) array[array##_length / 2]
 #define PUSH(array, value) array[array##_count++] = value
-
-
-
-
-
-
-
-
 
 
 int map_treshold(int *treshold_values, int *treshold_map, int value_to_classify){
