@@ -111,12 +111,6 @@ PROCEDURE(binarize_image){
     }
 }
 
-PROCEDURE(binarize_image){
-    ITERATE_IMAGE{
-        SET(VALUE(POST_INCREMENT(target)), PIXEL_OF_ITERATION(original) > 128 ? 255 : 0);
-    }
-}
-
 
 PROCEDURE(histogram_equalization){
     ZEROED_ARRAY(histogram, DISTINCT_BYTE_VALUES);
