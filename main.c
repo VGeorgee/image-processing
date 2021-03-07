@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     
     ctx.image_start = binarized;
     collect_shapes(binarized, ctx);
-    ctx.image_start = binarized;
+    puts("Collection ran succesfully!");
 
     free(treshold_buffer);
     free(gray_img);
@@ -78,7 +78,7 @@ PROCEDURE(treshold_image){
 
 PROCEDURE(binarize_image){
     ITERATE_IMAGE{
-        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original)));
+        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), 160));
     }
 }
 
@@ -115,27 +115,26 @@ PROCEDURE(median_filter){
 
 
 void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx){
+
     int number_of_shapes = 0;
     char file_name[200] = {0};
     
-    ITERATE_IMAGE {
+    ITERATE_IMAGE_INTERLEAVED(1) {
         if(is_shape(PIXEL_OF_ITERATION(original))){
-        
-            indexer[0].x = i;
-            indexer[0].y = j;
-            int indexer_count = 1;
 
             NEW_RECURSION_CONTEXT();
-            calculate_bounds_of_shape(&rctx, ctx, indexer, &indexer_count, i, j);
-            ALLOCATE_BUFFER(target, RECURSION_SIZE + 10);
-            WHITEN(target, RECURSION_SIZE + 10);
-            NEW_IMAGE_CONTEXT(target);
 
-           
-            for (int ij = 1; ij < indexer_count; ij++){
-                GET_CONTEXTED_PIXEL(target, target_ctx, (indexer[ij].x - indexer[0].x), (indexer[ij].y - indexer[0].y)) = 0;
+            PAINT_SHAPE();
+
+            ALLOCATE_BUFFER(target, RECURSION_SIZE);
+            WHITEN(target, RECURSION_SIZE);
+
+            NEW_IMAGE_CONTEXT(target);
+            FOR_RANGE(ij, 1, shape_points_count){
+                GET_CONTEXTED_PIXEL(target, target_ctx, (shape_points[ij].x - shape_points[0].x), (shape_points[ij].y - shape_points[0].y)) = 0;
             }
-            if(indexer_count > 100){
+           
+            if(shape_points_count > 10){
                 sprintf(file_name, "output/recursions/%d.png", number_of_shapes++);
                 puts(file_name);
                 SAVE_CTX(file_name, target, target_ctx);

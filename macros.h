@@ -14,13 +14,18 @@ typedef struct image_context {
     int offset;
 } IMAGE_CONTEXT;
 
-typedef struct indexer{
+typedef struct point{
     int x;
     int y;
-} INDEXER;
+} POINT;
 
  
-INDEXER indexer[240000000];
+POINT shape_points[240000000];
+int shape_points_count;
+
+#define RESET_SHAPE_POINTS() shape_points[0].x = i;\
+            shape_points[0].y = j;\
+            int shape_points_count = 1; \
 
 #define WIDTH ctx.width
 #define HEIGHT ctx.height
@@ -34,14 +39,16 @@ INDEXER indexer[240000000];
 #define PIXEL_ADDRESS(matrix) (matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS))
 #define APPEND_PIXEL(target, pixel) (*(target++)) = (pixel)
 #define FOR(x, y) for(int x = 0; x < y; x++)
+#define FOR_INCREMENT(x, y, increment) for(int x = 0; x < y; x+=increment)
 #define FOR_RANGE(name, from, to) for(int name = from; name < to; name++)
 #define ITERATE_IMAGE FOR(i, HEIGHT) FOR(j, WIDTH)
+#define ITERATE_IMAGE_INTERLEAVED(n) FOR_INCREMENT(i, HEIGHT, n) FOR(j, WIDTH)
 #define ITERATE_IMAGE_WITH_BOUNDS(n) FOR_RANGE(i, n, (HEIGHT - n)) FOR_RANGE(j, n, (WIDTH - n))
 #define VALUE(x) *(x)
 #define POST_INCREMENT(x) (x++)
 #define INCREMENT(x) (++x)
 #define SET(a, b) (a = b)
-#define BINARIZE(a) (a > 140 ? 255 : 0)
+#define BINARIZE(a, b) (a > b ? 255 : 0)
 #define TWO_DIM_VALUE(arr, i, j) arr[(i * WIDTH) + j]
 #define is_in_boundary(i, j) (i >= 0 && j >= 0 && i < HEIGHT && j < WIDTH)
 #define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size, 1)
@@ -124,6 +131,9 @@ typedef struct {
     rctx.starti = i;\
     rctx.startj = j;\
     ctx.image_start = original;\
+    shape_points[0].x = i;\
+    shape_points[0].y = j;\
+    int shape_points_count = 1; \
 
 #define RECURSION_HEIGHT ((((rctx.moves[1] - rctx.moves[0])) + 1) )
 #define RECURSION_WIDTH (((((rctx.moves[3]) - rctx.moves[2]) ) + 1) ) 
@@ -149,7 +159,7 @@ int recurse_array_i[] = {1, 0, 0, -1};
 int recurse_array_j[] = {0, 1, -1, 0};
 
 /// TOUCHED PIXELS MUST BE REPAINTED TO ORIGINAL COLOR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, INDEXER *array, int *array_size, int i, int j){
+void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, POINT *array, int *array_size, int i, int j){
     PIXEL_OF_ITERATION(ctx.image_start) = TOUCHED;
 
     if(array[0].x > i){
@@ -190,7 +200,7 @@ void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, INDEX
 
                                                                                     
 
-void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT target_ctx, int i, int j, INDEXER *array, int *array_size){
+void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT target_ctx, int i, int j, POINT *array, int *array_size){
     //printf("i=%d j=%d\n", i, j);
     //MERGER(target_ctx, i, j) = PIXEL_OF_ITERATION(ctx.image_start);
     if(array[0].x > i){
@@ -215,6 +225,7 @@ void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT targe
     }
 }
 
+#define PAINT_SHAPE() calculate_bounds_of_shape(&rctx, ctx, shape_points, &shape_points_count, i, j)
 
 
 
