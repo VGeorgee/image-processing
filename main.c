@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-
 #include "macros.h"
 
 //brightness transformation
@@ -9,8 +7,6 @@
         //tresholding
             //binarization -> one treshold value
     //brightness corrections
-
-
 
 
 int main(int argc, char **argv)
@@ -35,25 +31,53 @@ int main(int argc, char **argv)
 
 
     ALLOCATE_BUFFER(gray_img, gray_img_size);
-    convert_to_grayscale(gray_img, img, ctx);
-    SAVE_IMAGE("output/gray-scaled.jpg", gray_img, gray_channels);
+    CALL_PROC(convert_to_grayscale, gray_img, img);
+    SAVE_IMAGE("output/gray-scaled.jpg", gray_img);
 
     CHANNELS = 1;
-    ALLOCATE_BUFFER(treshold_buffer, gray_img_size);
-    treshold_image(treshold_buffer, gray_img, ctx);
-    SAVE_IMAGE("output/tresholded.jpg", treshold_buffer, gray_channels);
 
-    ALLOCATE_BUFFER(histogram_equalized_img, gray_img_size);
-    histogram_equalization(histogram_equalized_img, gray_img, ctx);
-    SAVE_IMAGE("output/histogram-equalized.jpg", histogram_equalized_img, gray_channels);
+    //MAKE("output/tresholded.jpg", treshold_buffer, gray_img, treshold_image);
+    //MAKE("output/histogram-equalized.jpg", histogram_equalized_img, gray_img, histogram_equalization);
+    //MAKE("output/median-filtered.jpg", median_fileter_image, gray_img, median_filter);
+    MAKE("output/binarized.jpg", binarized, gray_img, binarize_image);
+    printf("asda");
+    ctx.image_start = binarized;
+    collect_shapes(binarized, ctx);
+/*
+    RECURSION_CONTEXT rctx;
+    rctx.moves[0] = 0;
+    rctx.moves[1] = 0;
+    rctx.moves[2] = 0;
+    rctx.moves[3] = 0;
+    rctx.starti = 1;
+    rctx.startj = 1;
+*/
+    //calculate_bounds_of_shape(rctx, ctx, )
+    ctx.image_start = binarized;/*
+    calculate_bounds_of_shape(&rctx, ctx, 1, 1);
+    puts("recursion done");
+    printf("%d %d %d %d\n", rctx.moves[0],rctx.moves[1],rctx.moves[2],rctx.moves[3]);
+    printf("size: %5d %5d\n",   (rctx.moves[1] - rctx.moves[0]) + 1 , (rctx.moves[3] - rctx.moves[2]) + 1);
 
-    ALLOCATE_BUFFER(median_fileter_image, gray_img_size);
-    median_filter(median_fileter_image, gray_img, ctx);
-    SAVE_IMAGE("output/median-filtered.jpg", median_fileter_image, gray_channels);
+    ALLOCATE_BUFFER(minime, 200*200);
+    WHITEN(minime, 4000);
+    IMAGE_CONTEXT target_ctx;
+    target_ctx.image_start = minime;
+    target_ctx.height = (rctx.moves[1] - rctx.moves[0]) ;
+    target_ctx.width = (rctx.moves[3] - rctx.moves[2]) ;
+    target_ctx.channels = 1;
 
-    free(treshold_buffer);
+    
+    paint_shape(&rctx, ctx, target_ctx, 1, 1);
+    puts("recursion done");
+    SAVE_CTX("output/b.png", minime, target_ctx);
+    */
+
+   // SAVE_IMAGE("output/a.png", minime);
+   // free(treshold_buffer);
     free(gray_img);
-    free(histogram_equalized_img);
+   // free(histogram_equalized_img);
+    free(binarized);
 
     return 0;
 }
@@ -77,7 +101,13 @@ PROCEDURE(treshold_image){
     INT_ARRAY(map, 0, 80, 160, 255, -1);
 
     ITERATE_IMAGE {
-        SET(VALUE(POST_INCREMENT(target)), map_treshold(treshold, map, PIXEL_OF_ITERATION(original)));
+        APPEND_PIXEL(target, map_treshold(treshold, map, PIXEL_OF_ITERATION(original)));
+    }
+}
+
+PROCEDURE(binarize_image){
+    ITERATE_IMAGE{
+        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original)));
     }
 }
 
@@ -92,27 +122,76 @@ PROCEDURE(histogram_equalization){
     ZEROED_ARRAY(target_color, DISTINCT_BYTE_VALUES);
 
     FOR_RANGE(i, 1, DISTINCT_BYTE_VALUES){
-        SET(target_color[i], calculate_equalization(histogram[i] += histogram[i - 1], SIZE));
+        target_color[i] = calculate_equalization(histogram[i] += histogram[i - 1], SIZE);
     }
 
     ITERATE_IMAGE {
-        SET(PIXEL_OF_ITERATION(target), target_color[PIXEL_OF_ITERATION(original)]);
+        PIXEL_OF_ITERATION(target) = target_color[PIXEL_OF_ITERATION(original)];
     }
 }
 
 
 PROCEDURE(median_filter){
-    ITERATE_IMAGE {
-        NEW_LIST(medianer, 9);
+    ITERATE_IMAGE_WITH_BOUNDS(1) {
+        NEW_LIST(int, medianer, 9);
         FOR(offset, 9) {
-            int addressed_i = i + X_OFFSET[offset];
-            int addressed_j = j + Y_OFFSET[offset];
-            
-            if(is_in_boundary(addressed_i, addressed_j)){
-                PUSH(medianer,  GET_PIXEL(original, addressed_i, addressed_j));
-            }
+            PUSH(medianer,  GET_PIXEL(original, (i + X_OFFSET[offset]), (j + Y_OFFSET[offset])));
         }
         SORT(medianer);
         PIXEL_OF_ITERATION(target) = MEDIAN(medianer);
+    }
+}
+
+INDEXER indexer[240000000];
+
+void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx){
+    int number_of_shapes = 0;
+    char file_name[200] = {0};
+    printf("asda1\n");
+    
+    ITERATE_IMAGE {
+        if(is_shape(PIXEL_OF_ITERATION(original))){
+            printf("asda2\n");
+            
+                indexer[0].x = i;
+                indexer[0].y = j;
+                int indexer_count = 1;
+
+            printf("asda3\n");
+            NEW_RECURSION_CONTEXT();
+            calculate_bounds_of_shape(&rctx, ctx, indexer, &indexer_count, i, j);
+            ALLOCATE_BUFFER(target, RECURSION_SIZE + 10);
+            WHITEN(target, RECURSION_SIZE + 10);
+            NEW_IMAGE_CONTEXT(target);
+
+            printf("recursion size: %d\n", RECURSION_SIZE);
+
+            printf("    i and j: %3d %3d\n", i, j);
+            printf("    recursion wh: %3d %3d\n", RECURSION_WIDTH, RECURSION_HEIGHT);
+            printf("    size: %3d %3d %3d %3d\n",  rctx.moves[0],rctx.moves[1], rctx.moves[2], rctx.moves[3] );
+
+
+            if(1){
+                /*
+                indexer[0].x = i;
+                indexer[0].y = j;
+                int indexer_count = 1;
+                paint_shape(&rctx, ctx, target_ctx, i, j, indexer, &indexer_count);
+*/
+
+                for (int ij = 1; ij < indexer_count; ij++)
+                {
+                    printf("%d %d\n", indexer[ij].x, indexer[ij].y);
+
+                    GET_CONTEXTED_PIXEL(target, target_ctx, (indexer[ij].x - indexer[0].x), (indexer[ij].y - indexer[0].y)) = 0;
+
+                }
+                //GET_CONTEXTED_PIXEL(original, target_ctx, i, j);
+
+                sprintf(file_name, "output/recursions/%d.png", number_of_shapes++);
+                puts(file_name);
+                SAVE_CTX(file_name, target, target_ctx);
+            }
+        }
     }
 }

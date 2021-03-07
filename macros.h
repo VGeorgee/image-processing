@@ -11,7 +11,13 @@ typedef struct image_context {
     int width;
     int height;
     int channels;
+    int offset;
 } IMAGE_CONTEXT;
+
+typedef struct indexer{
+    int x;
+    int y;
+} INDEXER;
 
  
 
@@ -21,9 +27,11 @@ typedef struct image_context {
 #define IMG_BUFFER_START ctx.image_start
 #define SIZE (WIDTH * HEIGHT)
 #define GET_PIXEL(matrix, i, j) (*(matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS)))
+#define GET_CONTEXTED_PIXEL(matrix, ctx, i, j) (*(matrix + (i * ctx.width *  ctx.channels) + (j *  ctx.channels)))
 #define GET_PIXEL_ADDRESS(matrix, i, j) (matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS))
 #define PIXEL_OF_ITERATION(matrix) (*(matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS)))
 #define PIXEL_ADDRESS(matrix) (matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS))
+#define APPEND_PIXEL(target, pixel) (*(target++)) = (pixel)
 #define FOR(x, y) for(int x = 0; x < y; x++)
 #define FOR_RANGE(name, from, to) for(int name = from; name < to; name++)
 #define ITERATE_IMAGE FOR(i, HEIGHT) FOR(j, WIDTH)
@@ -32,17 +40,24 @@ typedef struct image_context {
 #define POST_INCREMENT(x) (x++)
 #define INCREMENT(x) (++x)
 #define SET(a, b) (a = b)
+#define BINARIZE(a) (a > 128 ? 255 : 0)
 #define TWO_DIM_VALUE(arr, i, j) arr[(i * WIDTH) + j]
 #define is_in_boundary(i, j) (i >= 0 && j >= 0 && i < HEIGHT && j < WIDTH)
-#define ALLOCATE_BUFFER(name, size) unsigned char *name = malloc(size)
-#define SAVE_IMAGE(target, image, channels) stbi_write_jpg(target, WIDTH, HEIGHT, channels, image, 100);
-#define PROCEDURE(name) void name(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx)
+#define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size, 1)
+#define SAVE_IMAGE(target, image) stbi_write_jpg(target, WIDTH, HEIGHT, 1, image, 100);
+#define SAVE_CTX(target, image, ctx) stbi_write_jpg(target, ctx.width, ctx.height, 1, image, 100);
+#define MAKE(name, target, original, proc) ALLOCATE_BUFFER(target, SIZE);CALL_PROC(proc, target, original);SAVE_IMAGE(name, target);
 
+#define WHITEN(buffer, size) for(int i = 0; i < size; buffer[i++] = 255);
+#define PROCEDURE(name) void name(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx)
+#define CALL_PROC(procedure, target, original) procedure(target, original, ctx)
 #define INT_ARRAY(name, ...) int name[] = {__VA_ARGS__}
 #define ADD(a, b) a += b
 #define DISTINCT_BYTE_VALUES 256
 #define ZEROED_ARRAY(name, length) int name[length] = { 0 }
 #define ROLL_SUM_ARRAY(arr, a) (arr[a] += arr[a - 1])
+
+
 
 void convert_to_grayscale(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void treshold_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
@@ -58,18 +73,10 @@ int cmp(int *a, int *b){
 }
 
 
-#define NEW_LIST(name, size) int name[size], name##_length = size, name##_count = 0;
+#define NEW_LIST(type, name, size) type name[size]; int name##_length = size, name##_count = 0;
 #define SORT(array) qsort(array, array##_length, sizeof(int), cmp) 
 #define MEDIAN(array) array[array##_length / 2]
 #define PUSH(array, value) array[array##_count++] = value
-
-
-
-
-
-
-
-
 
 
 int map_treshold(int *treshold_values, int *treshold_map, int value_to_classify){
@@ -95,3 +102,119 @@ int Y_OFFSET_WINDOW_3X3_COLUMN[] = {-1, -1, -1, 1, 1, 1};
 
 int X_OFFSET_WINDOW_3X3_ROW[] = {-1, -1, -1, 1, 1, 1};
 int Y_OFFSET_WINDOW_3X3_ROW[] = {-1,  0,  1,-1, 0, 1};
+
+
+typedef struct {
+    int moves[4];
+    int starti;
+    int startj;
+} RECURSION_CONTEXT;
+/*
+    int up;
+    int down;
+    int left;
+    int right;
+*/
+#define NEW_RECURSION_CONTEXT() RECURSION_CONTEXT rctx; \
+    rctx.moves[0] = i; \
+    rctx.moves[1] = i;\
+    rctx.moves[2] = j;\
+    rctx.moves[3] = j;\
+    rctx.starti = i;\
+    rctx.startj = j;\
+    ctx.image_start = original;\
+
+#define RECURSION_HEIGHT ((((rctx.moves[1] - rctx.moves[0])) + 1) )
+#define RECURSION_WIDTH (((((rctx.moves[3]) - rctx.moves[2]) ) + 1) ) 
+#define RECURSION_SIZE (RECURSION_HEIGHT * RECURSION_WIDTH)
+
+#define NEW_IMAGE_CONTEXT(target) IMAGE_CONTEXT target_ctx;\
+        target_ctx.image_start = target; \
+        target_ctx.height = RECURSION_HEIGHT; \
+        target_ctx.width = RECURSION_WIDTH;\
+        target_ctx.channels = 1; \
+
+
+
+
+#define PIXEL_TO_REPAINT 0
+#define TOUCHED 1
+#define is_shape(x) (x == PIXEL_TO_REPAINT)
+#define RCTX(x) rctx->x
+#define INCREMENT_BOUND(i) (RCTX(moves[i]++))
+#define GET_BOUND(i) (RCTX(moves[i]))
+
+int recurse_array_i[] = {1, 0, 0, -1};
+int recurse_array_j[] = {0, 1, -1, 0};
+
+/// TOUCHED PIXELS MUST BE REPAINTED TO ORIGINAL COLOR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, INDEXER *array, int *array_size, int i, int j){
+    PIXEL_OF_ITERATION(ctx.image_start) = TOUCHED;
+
+    if(array[0].x > i){
+        array[0].x = i;
+    }
+    if(array[0].y > j){
+        array[0].y = j;
+    }
+    array[VALUE(array_size)].x = i;
+    array[VALUE(array_size)].y = j;
+    INCREMENT(VALUE(array_size));
+
+    FOR(recurse, 4){
+        int r_i = recurse_array_i[recurse] + i;
+        int r_j = recurse_array_j[recurse] + j;
+        if(is_in_boundary(r_i, r_j) && (GET_PIXEL(ctx.image_start, r_i, r_j) == PIXEL_TO_REPAINT)){
+            //printf("%d %d\n", r_i, r_j);
+            if(r_i < GET_BOUND(0)){
+                GET_BOUND(0) = r_i;
+            }
+            if(r_i > GET_BOUND(1)){
+                GET_BOUND(1) = r_i;
+            }
+            if(r_j < GET_BOUND(2)){
+                GET_BOUND(2) = r_j;
+            }
+            if(r_j > GET_BOUND(3)){
+                GET_BOUND(3) = r_j;
+            }
+            //INCREMENT_BOUND(recurse);
+            calculate_bounds_of_shape(rctx, ctx, array, array_size, r_i, r_j);
+        }
+    }
+}                                                                                       
+                                                                                                    //
+#define MERGER(target, i, j)  (*(target.image_start + (((  ((i - RCTX(starti)) % target_ctx.height) ) ) * target_ctx.width * CHANNELS) + (( ( (j) % target_ctx.width )) * CHANNELS)))
+                                                                                    //
+
+                                                                                    
+
+void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT target_ctx, int i, int j, INDEXER *array, int *array_size){
+    //printf("i=%d j=%d\n", i, j);
+    //MERGER(target_ctx, i, j) = PIXEL_OF_ITERATION(ctx.image_start);
+    if(array[0].x > i){
+        array[0].x = i;
+    }
+    if(array[0].y > j){
+        array[0].y = j;
+    }
+    array[VALUE(array_size)].x = i;
+    array[VALUE(array_size)].y = j;
+    INCREMENT(VALUE(array_size));
+
+    PIXEL_OF_ITERATION(ctx.image_start) = TOUCHED + 1;
+
+    FOR(recurse, 4){
+        int r_i = recurse_array_i[recurse] + i;
+        int r_j = recurse_array_j[recurse] + j;
+        if(is_in_boundary(r_i, r_j) && (GET_PIXEL(ctx.image_start, r_i, r_j) == TOUCHED)){
+           // INCREMENT_BOUND(recurse);
+            paint_shape(rctx, ctx, target_ctx, r_i, r_j, array, array_size);
+        }
+    }
+}
+
+
+
+
+
