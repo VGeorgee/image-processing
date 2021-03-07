@@ -20,6 +20,7 @@ typedef struct indexer{
 } INDEXER;
 
  
+INDEXER indexer[240000000];
 
 #define WIDTH ctx.width
 #define HEIGHT ctx.height
@@ -40,7 +41,7 @@ typedef struct indexer{
 #define POST_INCREMENT(x) (x++)
 #define INCREMENT(x) (++x)
 #define SET(a, b) (a = b)
-#define BINARIZE(a) (a > 128 ? 255 : 0)
+#define BINARIZE(a) (a > 140 ? 255 : 0)
 #define TWO_DIM_VALUE(arr, i, j) arr[(i * WIDTH) + j]
 #define is_in_boundary(i, j) (i >= 0 && j >= 0 && i < HEIGHT && j < WIDTH)
 #define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size, 1)
