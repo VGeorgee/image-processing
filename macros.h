@@ -11,7 +11,8 @@ typedef struct image_context {
     int width;
     int height;
     int channels;
-    int offset;
+    int start_x;
+    int start_y;
 } IMAGE_CONTEXT;
 
 typedef struct point{
@@ -146,8 +147,6 @@ typedef struct {
         target_ctx.channels = 1; \
 
 
-
-
 #define PIXEL_TO_REPAINT 0
 #define TOUCHED 1
 #define is_shape(x) (x == PIXEL_TO_REPAINT)
@@ -227,6 +226,24 @@ void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT targe
 
 #define PAINT_SHAPE() calculate_bounds_of_shape(&rctx, ctx, shape_points, &shape_points_count, i, j)
 
+IMAGE_CONTEXT collected_shapes[200000];
+int collected_shapes_count = 0;
 
+#define PUSH_SHAPE(ctx) \
+        collected_shapes[collected_shapes_count] = ctx;\
+        collected_shapes[collected_shapes_count].start_x = i; \
+        collected_shapes[collected_shapes_count].start_y = j; \
+        collected_shapes_count++; \
 
+#define GET_SHAPE(index) collected_shapes[index];
 
+int shape_sorter(const void *a, const void *b){
+    IMAGE_CONTEXT *pa = (IMAGE_CONTEXT *)a;
+    IMAGE_CONTEXT *pb = (IMAGE_CONTEXT *)b;
+    if(pa->start_x != pb->start_x ){//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
+        return pa->start_x - pb->start_x;
+    }
+    return pa->start_y - pb->start_y;
+}
+
+#define SORT_SHAPES() qsort(collected_shapes, collected_shapes_count, sizeof(IMAGE_CONTEXT), shape_sorter);

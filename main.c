@@ -54,11 +54,11 @@ int main(int argc, char **argv)
 }
 
 
-void convert_to_grayscale(PIXEL_ARRAY target_buffer, PIXEL_ARRAY original_image, IMAGE_CONTEXT ctx){
+PROCEDURE(convert_to_grayscale){
     ITERATE_IMAGE {
-        SET(VALUE(POST_INCREMENT(target_buffer)), calculate_grayscale_value(PIXEL_ADDRESS(original_image)));
+        SET(VALUE(POST_INCREMENT(target)), calculate_grayscale_value(PIXEL_ADDRESS(original)));
         if(CHANNELS == 4) {
-            SET(VALUE(target_buffer + 1), VALUE(PIXEL_ADDRESS(original_image) + 1));
+            SET(VALUE(target + 1), VALUE(PIXEL_ADDRESS(original) + 1));
         }
     }
 }
@@ -78,7 +78,7 @@ PROCEDURE(treshold_image){
 
 PROCEDURE(binarize_image){
     ITERATE_IMAGE{
-        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), 160));
+        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), 140));
     }
 }
 
@@ -119,26 +119,31 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx){
     int number_of_shapes = 0;
     char file_name[200] = {0};
     
-    ITERATE_IMAGE_INTERLEAVED(1) {
+    ITERATE_IMAGE_INTERLEAVED(3) {
         if(is_shape(PIXEL_OF_ITERATION(original))){
 
             NEW_RECURSION_CONTEXT();
 
             PAINT_SHAPE();
 
-            ALLOCATE_BUFFER(target, RECURSION_SIZE);
-            WHITEN(target, RECURSION_SIZE);
+            if(shape_points_count > 100){
+                ALLOCATE_BUFFER(target, RECURSION_SIZE);
+                WHITEN(target, RECURSION_SIZE);
 
-            NEW_IMAGE_CONTEXT(target);
-            FOR_RANGE(ij, 1, shape_points_count){
-                GET_CONTEXTED_PIXEL(target, target_ctx, (shape_points[ij].x - shape_points[0].x), (shape_points[ij].y - shape_points[0].y)) = 0;
-            }
-           
-            if(shape_points_count > 10){
-                sprintf(file_name, "output/recursions/%d.png", number_of_shapes++);
-                puts(file_name);
-                SAVE_CTX(file_name, target, target_ctx);
+                NEW_IMAGE_CONTEXT(target);
+                FOR_RANGE(index, 1, shape_points_count){
+                    GET_CONTEXTED_PIXEL(target, target_ctx, (shape_points[index].x - shape_points[0].x), (shape_points[index].y - shape_points[0].y)) = 0;
+                }
+                PUSH_SHAPE(target_ctx);
             }
         }
+    }
+    
+    SORT_SHAPES();
+    FOR(index, collected_shapes_count){
+        sprintf(file_name, "output/shapes/%d.png", number_of_shapes++);
+        puts(file_name);
+        IMAGE_CONTEXT shape = GET_SHAPE(index);
+        SAVE_CTX(file_name, shape.image_start, shape);
     }
 }
