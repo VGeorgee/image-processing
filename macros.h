@@ -62,6 +62,7 @@ int shape_points_count;
 #define CALL_PROC(procedure, target, original) procedure(target, original, ctx)
 #define INT_ARRAY(name, ...) int name[] = {__VA_ARGS__}
 #define ADD(a, b) a += b
+#define DIV(a, b) (a / b)
 #define DISTINCT_BYTE_VALUES 256
 #define ZEROED_ARRAY(name, length) int name[length] = { 0 }
 #define ROLL_SUM_ARRAY(arr, a) (arr[a] += arr[a - 1])
@@ -87,7 +88,7 @@ int cmp(const void *a,const void *b){
 
 
 #define NEW_LIST(type, name, size) type name[size]; int name##_length = size, name##_count = 0;
-#define SORT(array) qsort(array, array##_length, sizeof(int), cmp) 
+#define SORT(array) qsort(array, array##_length, sizeof(int), cmp)
 #define MEDIAN(array) array[array##_length / 2]
 #define PUSH(array, value) array[array##_count++] = value
 
