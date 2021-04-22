@@ -69,16 +69,20 @@ int shape_points_count;
 
 
 void convert_to_grayscale(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
+void median_filter(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
+void binarize_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void treshold_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void histogram_equalization(unsigned char *target_buffer, unsigned char *grayscale_image, IMAGE_CONTEXT ctx);
 int get_treshold_mapping(int *treshold_values, int *treshold_map, int value_to_classify);
 unsigned char calculate_grayscale_value(unsigned char *pixel);
 void convert_image_to_2_dimension(PIXEL_TYPE *target, PIXEL_TYPE *image, IMAGE_CONTEXT ctx);
 void print_boundaries(PIXEL_ARRAY image, IMAGE_CONTEXT ctx);
+void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx);
 
-
-int cmp(int *a, int *b){
-    return *a - *b;
+int cmp(const void *a,const void *b){
+    int *pa = (int *)a;
+    int *pb = (int *)b;
+    return *pa - *pb;
 }
 
 

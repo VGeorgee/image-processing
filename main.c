@@ -30,6 +30,7 @@ int main(int argc, char **argv)
     size_t gray_img_size = SIZE * gray_channels;
 
 
+
     ALLOCATE_BUFFER(gray_img, gray_img_size);
     CALL_PROC(convert_to_grayscale, gray_img, img);
     SAVE_IMAGE("output/gray-scaled.jpg", gray_img);
