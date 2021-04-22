@@ -148,3 +148,25 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx){
         SAVE_CTX(file_name, shape.image_start, shape);
     }
 }
+
+void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, int target_size){
+    int width_increment = WIDTH / target_size;
+    int height_increment = HEIGHT / target_size;
+    
+    FOR_INCREMENT(i, HEIGHT, width_increment) {
+        FOR_INCREMENT(j, WIDTH, height_increment) {
+
+            NEW_LIST(int, pixels_to_median, width_increment * height_increment);
+
+            FOR(target_x, width_increment){
+                FOR(target_y, height_increment){
+                    PUSH(pixels_to_median, GET_PIXEL(original, target_x, target_y));
+                }
+            }
+            
+            SORT(pixels_to_median);
+
+            APPEND_PIXEL(target, MEDIAN(pixels_to_median));
+        }
+    }
+}
