@@ -160,7 +160,7 @@ void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, in
 
             FOR(target_x, width_increment){
                 FOR(target_y, height_increment){
-                    PUSH(pixels_to_median, GET_PIXEL(original, target_x, target_y));
+                    PUSH(pixels_to_median, GET_PIXEL(original, i + target_x, j + target_y));
                 }
             }
             
