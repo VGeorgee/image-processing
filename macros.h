@@ -2,6 +2,7 @@
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#include "stb_image_resize.h"
 
 #define PIXEL_TYPE unsigned char
 #define PIXEL_ARRAY PIXEL_TYPE *
@@ -20,18 +21,22 @@ typedef struct point{
     int y;
 } POINT;
 
+typedef struct learned_image {
+    PIXEL_ARRAY image_start;
+    int width;
+    int height;
+    int channels;
+    char character;
+} LEARNED_IMAGE_CONTEXT;
+
  
 POINT shape_points[240000000];
 int shape_points_count;
 
-#define RESET_SHAPE_POINTS() shape_points[0].x = i;\
-            shape_points[0].y = j;\
-            int shape_points_count = 1; \
 
 #define WIDTH ctx.width
 #define HEIGHT ctx.height
 #define CHANNELS ctx.channels
-#define IMG_BUFFER_START ctx.image_start
 #define SIZE (WIDTH * HEIGHT)
 #define GET_PIXEL(matrix, i, j) (*(matrix + (i * WIDTH * CHANNELS) + (j * CHANNELS)))
 #define GET_CONTEXTED_PIXEL(matrix, ctx, i, j) (*(matrix + (i * ctx.width *  ctx.channels) + (j *  ctx.channels)))
@@ -50,22 +55,21 @@ int shape_points_count;
 #define INCREMENT(x) (++x)
 #define SET(a, b) (a = b)
 #define BINARIZE(a, b) (a > b ? 255 : 0)
-#define TWO_DIM_VALUE(arr, i, j) arr[(i * WIDTH) + j]
 #define is_in_boundary(i, j) (i >= 0 && j >= 0 && i < HEIGHT && j < WIDTH)
-#define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size, 1)
+#define ALLOCATE_BUFFER(name, size) unsigned char *name = calloc(size + 4096, 1)
 #define SAVE_IMAGE(target, image) stbi_write_jpg(target, WIDTH, HEIGHT, 1, image, 100);
 #define SAVE_CTX(target, image, ctx) stbi_write_jpg(target, ctx.width, ctx.height, 1, image, 100);
 #define MAKE(name, target, original, proc) ALLOCATE_BUFFER(target, SIZE);CALL_PROC(proc, target, original);SAVE_IMAGE(name, target);
 
-#define WHITEN(buffer, size) for(int i = 0; i < size; buffer[i++] = 255);
+#define WHITEN(buffer, size) memset(buffer, 255, size)
 #define PROCEDURE(name) void name(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx)
 #define CALL_PROC(procedure, target, original) procedure(target, original, ctx)
 #define INT_ARRAY(name, ...) int name[] = {__VA_ARGS__}
 #define ADD(a, b) a += b
 #define DIV(a, b) (a / b)
+#define ABS(a) (a < 0 ? -a : a)
 #define DISTINCT_BYTE_VALUES 256
 #define ZEROED_ARRAY(name, length) int name[length] = { 0 }
-#define ROLL_SUM_ARRAY(arr, a) (arr[a] += arr[a - 1])
 
 
 
@@ -74,11 +78,9 @@ void median_filter(unsigned char *target_buffer, unsigned char *original_image, 
 void binarize_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void treshold_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void histogram_equalization(unsigned char *target_buffer, unsigned char *grayscale_image, IMAGE_CONTEXT ctx);
-int get_treshold_mapping(int *treshold_values, int *treshold_map, int value_to_classify);
 unsigned char calculate_grayscale_value(unsigned char *pixel);
-void convert_image_to_2_dimension(PIXEL_TYPE *target, PIXEL_TYPE *image, IMAGE_CONTEXT ctx);
-void print_boundaries(PIXEL_ARRAY image, IMAGE_CONTEXT ctx);
 void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx);
+void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, int target_size);
 
 int cmp(const void *a,const void *b){
     int *pa = (int *)a;
@@ -195,36 +197,6 @@ void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, POINT
             }
             //INCREMENT_BOUND(recurse);
             calculate_bounds_of_shape(rctx, ctx, array, array_size, r_i, r_j);
-        }
-    }
-}                                                                                       
-                                                                                                    //
-#define MERGER(target, i, j)  (*(target.image_start + (((  ((i - RCTX(starti)) % target_ctx.height) ) ) * target_ctx.width * CHANNELS) + (( ( (j) % target_ctx.width )) * CHANNELS)))
-                                                                                    //
-
-                                                                                    
-
-void paint_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, IMAGE_CONTEXT target_ctx, int i, int j, POINT *array, int *array_size){
-    //printf("i=%d j=%d\n", i, j);
-    //MERGER(target_ctx, i, j) = PIXEL_OF_ITERATION(ctx.image_start);
-    if(array[0].x > i){
-        array[0].x = i;
-    }
-    if(array[0].y > j){
-        array[0].y = j;
-    }
-    array[VALUE(array_size)].x = i;
-    array[VALUE(array_size)].y = j;
-    INCREMENT(VALUE(array_size));
-
-    PIXEL_OF_ITERATION(ctx.image_start) = TOUCHED + 1;
-
-    FOR(recurse, 4){
-        int r_i = recurse_array_i[recurse] + i;
-        int r_j = recurse_array_j[recurse] + j;
-        if(is_in_boundary(r_i, r_j) && (GET_PIXEL(ctx.image_start, r_i, r_j) == TOUCHED)){
-           // INCREMENT_BOUND(recurse);
-            paint_shape(rctx, ctx, target_ctx, r_i, r_j, array, array_size);
         }
     }
 }
