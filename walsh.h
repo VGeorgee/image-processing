@@ -1,3 +1,6 @@
+#include "macros.h"
+
+
 #define BIT(number, nth) (!!(number & (1 << nth)))
 
 
@@ -11,11 +14,12 @@ double kernel_function(int x, int y, int u, int v){
 } 
 
 double walsh_transform(unsigned char *target, int u, int v){
+    IMAGE_CONTEXT ctx = { .width = 64, .height = 64, .channels = 1};
     int x,y;
     double sum = 0;
     for(x = 0; x < 64; x++) {
         for(y = 0; y < 64; y++) {
-            sum += target[x] * kernel_function(x, y, u, v);
+            sum += GET_PIXEL(target, x, y) * kernel_function(x, y, u, v);
         }
     }
     return sum;
