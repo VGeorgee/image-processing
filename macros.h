@@ -1,3 +1,6 @@
+#ifndef image_macros_h
+#define image_macros_h
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -27,6 +30,7 @@ typedef struct learned_image {
     int height;
     int channels;
     char character;
+    double feature_vectors[256];
 } LEARNED_IMAGE_CONTEXT;
 
  
@@ -79,8 +83,10 @@ void binarize_image(unsigned char *target_buffer, unsigned char *original_image,
 void treshold_image(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
 void histogram_equalization(unsigned char *target_buffer, unsigned char *grayscale_image, IMAGE_CONTEXT ctx);
 unsigned char calculate_grayscale_value(unsigned char *pixel);
-void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx);
+void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_counter, IMAGE_CONTEXT ctx);
 void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, int target_size);
+void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir);
+
 
 int cmp(const void *a,const void *b){
     int *pa = (int *)a;
@@ -224,3 +230,8 @@ int shape_sorter(const void *a, const void *b){
 }
 
 #define SORT_SHAPES() qsort(collected_shapes, collected_shapes_count, sizeof(IMAGE_CONTEXT), shape_sorter);
+
+
+
+
+#endif

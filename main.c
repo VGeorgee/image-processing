@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "macros.h"
+#include "walsh.h"
+#include "args.h"
 
 //brightness transformation
     //grays-scale
@@ -10,7 +12,11 @@
     //brightness corrections
 
 
-    
+   // NEW_LIST(LEARNED_IMAGE_CONTEXT, learned_characters, )
+
+
+// ocr -segment -in filename -out
+// ocr -extract -in filename -out
 
 
 int main(int argc, char **argv) {
@@ -46,7 +52,12 @@ int main(int argc, char **argv) {
     MAKE("output/binarized.jpg", binarized, gray_img, binarize_image);
     
     ctx.image_start = binarized;
-    collect_shapes(binarized, ctx);
+
+    NEW_LIST(IMAGE_CONTEXT, collection, 1500);
+    collect_shapes(binarized, collection, &collection_count, ctx);
+    save_collection(collection, collection_count, "");
+
+
     puts("Collection ran succesfully!");
 
     free(treshold_buffer);
@@ -118,7 +129,7 @@ PROCEDURE(median_filter) {
 }
 
 
-void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx) {
+void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_counter, IMAGE_CONTEXT ctx) {
 
     int number_of_shapes = 0;
     char file_name[200] = {0};
@@ -145,6 +156,10 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx) {
     }
     
     SORT_SHAPES();
+
+
+
+    int array_count = 0;
     FOR(index, collected_shapes_count) {
 
         sprintf(file_name, "output/shapes/%d.png", number_of_shapes++);
@@ -161,13 +176,24 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT ctx) {
         scaled.channels = 1;
         scaled.image_start = scaled_buffer;
 
+        
+        PUSH(array, scaled);
+    }
+    VALUE(array_counter) = array_count;
+}
 
-        stbi_write_jpg(file_name, 64, 64, 1, scaled_buffer, 100);
+
+void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
+    char file_name[500]; 
+    FOR(image, size) {
+        sprintf(file_name, "output/shapes/%d.png", image);
+        puts(file_name);
+        stbi_write_jpg(file_name, 64, 64, 1, collection[image].image_start, 100);
     }
 }
 
 
-int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size){
+int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size) {
     int diff = 0;
     FOR(index, size * size) {
         diff += ABS(VALUE(a++) - VALUE(b++));
