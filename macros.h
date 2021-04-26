@@ -17,6 +17,7 @@ typedef struct image_context {
     int channels;
     int start_x;
     int start_y;
+    double *feature_vectors;
 } IMAGE_CONTEXT;
 
 typedef struct point{
@@ -86,6 +87,27 @@ unsigned char calculate_grayscale_value(unsigned char *pixel);
 void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_counter, IMAGE_CONTEXT ctx);
 void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, int target_size);
 void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir);
+int segment(char **argv);
+int extract(char **argv);
+void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count);
+
+
+IMAGE_CONTEXT read_image(char *file_name){
+    IMAGE_CONTEXT ctx;
+
+    ctx.image_start = stbi_load(file_name, &WIDTH, &HEIGHT, &CHANNELS, 0);
+    if(ctx.image_start == NULL) {
+        printf("Error in loading the image\n");
+        exit(1);
+    }
+    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
+
+    return ctx;
+}
+
+
+
+
 
 
 int cmp(const void *a,const void *b){
@@ -95,7 +117,7 @@ int cmp(const void *a,const void *b){
 }
 
 
-#define NEW_LIST(type, name, size) type name[size]; int name##_length = size, name##_count = 0;
+#define NEW_LIST(type, name, size) type name[size] = {}; int name##_length = size, name##_count = 0;
 #define SORT(array) qsort(array, array##_length, sizeof(int), cmp)
 #define MEDIAN(array) array[array##_length / 2]
 #define PUSH(array, value) array[array##_count++] = value
