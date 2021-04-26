@@ -15,15 +15,19 @@
    // NEW_LIST(LEARNED_IMAGE_CONTEXT, learned_characters, )
 
 
-// ocr -segment -in filename -out
+// ocr -segment -in filename -out 
 // ocr -extract -in filename -out
 
 
 int main(int argc, char **argv) {
-    if(argc == 1) {
-        puts("No arguments given!");
+    if(argc < 6) {
+        fprintf(stderr, "format: %s [-segment|-extract] -in filename -out filename", crop_filename(argv[0]));
         return 1;
     }
+
+    segment(argv);
+
+    return 0;
 
     IMAGE_CONTEXT ctx;
 
@@ -53,6 +57,7 @@ int main(int argc, char **argv) {
     
     ctx.image_start = binarized;
 
+
     NEW_LIST(IMAGE_CONTEXT, collection, 1500);
     collect_shapes(binarized, collection, &collection_count, ctx);
     save_collection(collection, collection_count, "");
@@ -68,6 +73,64 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+// read pic ---
+// segment shapes
+// calculate vectors
+// save shapes and vectors to output
+int segment(char **argv) {
+    IMAGE_CONTEXT ctx = read_image(argv[get_index_of_param(argv, "-in")]);
+    
+    ALLOCATE_BUFFER(grayscale_image, SIZE);
+    CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
+    SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
+    CHANNELS = 1;
+
+    // MAKE("output/tresholded.jpg", treshold_buffer, grayscale_image, treshold_image);
+    MAKE("output/histogram-equalized.jpg", histogram_equalized_img, grayscale_image, histogram_equalization);
+    MAKE("output/median-filtered.jpg", median_fileter_image, grayscale_image, median_filter);
+    MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
+    
+    ctx.image_start = binarized;
+
+    NEW_LIST(IMAGE_CONTEXT, collection, 1500);
+    for(int i = 0; i < 1500; i++){
+        if(collection[i].feature_vectors != NULL ||collection[i].image_start != NULL || collection[i].height != 0){
+            printf("Bajvan\n");
+        }
+    }
+    collect_shapes(binarized, collection, &collection_count, ctx);
+
+    calculate_feature_vectors(collection, collection_count);
+
+    save_collection(collection, collection_count, "");
+
+    puts("Segmentation ran succesfully!");
+
+    free(histogram_equalized_img);
+    free(binarized);
+    free(grayscale_image);
+    return 0;
+}
+
+// initialize database
+// read pic
+// segment shapes
+// calculate vectors
+// search vectors
+// save text to output
+int extract(char **argv){
+    
+}
+
+
+void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count) {
+    puts("Henloa!");
+    FOR(i, collection_count) {
+        collection[i].feature_vectors = calloc(256, sizeof(double));
+        generate_feat_vectors(collection[i].feature_vectors, collection[i].image_start, 16);
+    }
+    puts("Henlob!");
+}
 
 PROCEDURE(convert_to_grayscale) {
     ITERATE_IMAGE {
@@ -162,8 +225,6 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
     int array_count = 0;
     FOR(index, collected_shapes_count) {
 
-        sprintf(file_name, "output/shapes/%d.png", number_of_shapes++);
-        puts(file_name);
         IMAGE_CONTEXT shape = GET_SHAPE(index);
 
         ALLOCATE_BUFFER(scaled_buffer, 64 * 64);
@@ -189,10 +250,22 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
         sprintf(file_name, "output/shapes/%d.png", image);
         puts(file_name);
         stbi_write_jpg(file_name, 64, 64, 1, collection[image].image_start, 100);
+
+        printf("!!! Feat vectors must be initialized!!!\n");
+        
+        FILE *fvout;
+        if(collection[image].feature_vectors) {
+            sprintf(file_name, "output/shapes/%d.fv", image);
+            puts(file_name);
+            fvout = fopen(file_name, "w+");
+            fwrite(collection[image].feature_vectors, sizeof(double), 256, fvout);
+            free(collection[image].feature_vectors);
+        }
+        fclose(fvout);
     }
 }
 
-
+/*
 int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size) {
     int diff = 0;
     FOR(index, size * size) {
@@ -200,3 +273,4 @@ int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size) {
     }
     return diff;
 }
+*/
