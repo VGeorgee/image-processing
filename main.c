@@ -5,13 +5,12 @@
 #include "walsh.h"
 #include "args.h"
 
-#ifndef BINARY_TRESHOLD
-#   define BINARY_TRESHOLD 140
-#endif
+#define BINARY_TRESHOLD 140
 #define MAX_NUMBER_OF_SHAPES 1500
 #define FEATURE_VECTOR_SAMPLING 16
 #define NUMBER_OF_FEATURE_VECTORS FEATURE_VECTOR_SAMPLING * FEATURE_VECTOR_SAMPLING
 
+#define MAX_NUMBER_OF_LEARNED_SHAPES 5000
 
 //brightness transformation
     //grays-scale
@@ -24,10 +23,23 @@
 
 
 // ocr -segment -in filename -out 
-// ocr -extract -in filename -out
+// ocr -extract -in directory -out filename
 
 
 int main(int argc, char **argv) {
+    //printf("%p\n", read_feature_vector(argv[1]));
+    //read_image(argv[1]);
+
+    NEW_LIST(IMAGE_CONTEXT, database, 1400);
+    initialize_database(database, &database_count, argv[1]);
+    //read_directory("input", "supervised/digits", '0', '9', database, &database_count);
+    FOR(i, database_count){
+        printf("element: %c %p\n", database[i].character, database[i].feature_vectors);
+    }
+    return 0;
+}
+
+int main2(int argc, char **argv) {
     if(argc < 6) {
         fprintf(stderr, "format: %s [-segment|-extract] -in filename -out filename", crop_filename(argv[0]));
         return 1;
@@ -120,14 +132,24 @@ int segment(char **argv) {
     return 0;
 }
 
-// initialize database
+// initialize database ---
 // read pic
 // segment shapes
 // calculate vectors
 // search vectors
 // save text to output
 int extract(char **argv){
-    
+    NEW_LIST(IMAGE_CONTEXT, database, MAX_NUMBER_OF_LEARNED_SHAPES);
+
+    int index_of_dir = get_index_of_param(argv, "-in");
+    if(index_of_dir < 0){
+        fprintf(stderr, "No input directory provided!\n");
+        return 1;
+    }
+
+    initialize_database(database, &database_count, argv[index_of_dir]);
+
+
 }
 
 
@@ -225,8 +247,6 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
     
     SORT_SHAPES();
 
-
-
     int array_count = 0;
     FOR(index, collected_shapes_count) {
 
@@ -270,6 +290,74 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
         fclose(fvout);
     }
 }
+
+
+void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir) {
+    read_directory(dir, "digits", '0', '9', database, database_count);
+    read_directory(dir, "lower", 'a', 'z', database, database_count);
+    read_directory(dir, "upper", 'A', 'Z', database, database_count);
+}
+
+void read_directory(const char *dir_prefix, const char *dir, const char start, const char end, IMAGE_CONTEXT *database, int *database_count) {
+
+    int count = *database_count;
+    char dir_prefix_trimmed[200];
+    strcpy(dir_prefix_trimmed, dir_prefix);
+    trim_dir_backslash(dir_prefix_trimmed);
+
+    for(char character = start; character <= end; character++) {
+        if(count >= MAX_NUMBER_OF_LEARNED_SHAPES){
+            fprintf(stderr, "MAX NUMBER OF DATABASE REACHED! [change MAX_NUMBER_OF_LEARNED_SHAPES macro to reach higher capacity]\n");
+            return;
+        }
+
+        double *fv = (double *)0x1;
+        int read_files = 0;
+
+        char file_name[1000];
+        while(fv) {
+            sprintf(file_name, "%s\\%s\\%c\\%d.fv", dir_prefix_trimmed, dir, character, read_files);
+            puts(file_name);
+            fv = read_feature_vector(file_name);
+            if(fv) {
+                database[count].character = character;
+                database[count++].feature_vectors = fv;
+            }
+            
+            read_files++;
+        }
+        *database_count = count;
+    }
+}
+
+
+
+double *read_feature_vector(const char *file_name) {
+    FILE *vector_pointer = fopen(file_name, "r");
+    double *fv = NULL;
+
+    if(vector_pointer){
+        fv = (double *)calloc(NUMBER_OF_FEATURE_VECTORS, sizeof(double));
+        fread(fv, sizeof(double), NUMBER_OF_FEATURE_VECTORS, vector_pointer);
+        fclose(vector_pointer);
+    }
+    return fv;
+}
+
+
+IMAGE_CONTEXT read_image(char *file_name) {
+    IMAGE_CONTEXT ctx;
+
+    ctx.image_start = stbi_load(file_name, &WIDTH, &HEIGHT, &CHANNELS, 0);
+    if(ctx.image_start == NULL) {
+        printf("Error in loading the image\n");
+        exit(1);
+    }
+    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
+
+    return ctx;
+}
+
 
 /*
 int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size) {
