@@ -22,20 +22,23 @@
    // NEW_LIST(LEARNED_IMAGE_CONTEXT, learned_characters, )
 
 
-// ocr -segment -in filename -out 
-// ocr -extract -in directory -out filename
+// ocr -segment -in filename -out filename
+// ocr -extract -db directory -in filename -out filename
 
 
 int main(int argc, char **argv) {
     //printf("%p\n", read_feature_vector(argv[1]));
     //read_image(argv[1]);
 
+/*
     NEW_LIST(IMAGE_CONTEXT, database, 1400);
     initialize_database(database, &database_count, argv[1]);
     //read_directory("input", "supervised/digits", '0', '9', database, &database_count);
     FOR(i, database_count){
         printf("element: %c %p\n", database[i].character, database[i].feature_vectors);
     }
+  */
+    extract(argv);
     return 0;
 }
 
@@ -133,25 +136,92 @@ int segment(char **argv) {
 }
 
 // initialize database ---
-// read pic
+// read pic ---
 // segment shapes
 // calculate vectors
 // search vectors
 // save text to output
 int extract(char **argv){
-    NEW_LIST(IMAGE_CONTEXT, database, MAX_NUMBER_OF_LEARNED_SHAPES);
 
-    int index_of_dir = get_index_of_param(argv, "-in");
-    if(index_of_dir < 0){
+    int index_of_db = get_index_of_param(argv, "-db");
+    if(index_of_db < 0){
         fprintf(stderr, "No input directory provided!\n");
         return 1;
     }
 
-    initialize_database(database, &database_count, argv[index_of_dir]);
 
+    int index_of_img = get_index_of_param(argv, "-in");
+    if(index_of_img < 0){
+        fprintf(stderr, "No input image provided!\n");
+        return 1;
+    }
+    
+    NEW_LIST(IMAGE_CONTEXT, database, MAX_NUMBER_OF_LEARNED_SHAPES);
+    initialize_database(database, &database_count, argv[index_of_db]);
+
+    IMAGE_CONTEXT ctx = read_and_binarize_img(argv[index_of_img]);
+    NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
+    DEBUG("Collecting shapes");
+    collect_shapes(ctx.image_start, collection, &collection_count, ctx);
+    printf("found shapes = %d\n", collection_count);
+    DEBUG("Calculating feature vectors");
+    calculate_feature_vectors(collection, collection_count);
+
+
+
+    /////
+    for(int i = 0; i < 256; i++){
+        printf("%f\n", collection[0].feature_vectors[i]);
+    }
+    save_collection(collection, collection_count, "");
+
+
+    /////
+
+
+    DEBUG("Matching feature vectors");
+
+    int max_match_index = -1;
+    int max_match = 0;
+    FOR(collection_index, collection_count){
+        FOR(database_index, database_count){
+            IMAGE_CONTEXT new_shape = collection[collection_index];
+            IMAGE_CONTEXT learned_shape = database[database_index];
+            printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
+            int match = 0;
+            for(int vector_index = 0; vector_index < NUMBER_OF_FEATURE_VECTORS; vector_index++){
+                //printf("%f == %f", new_shape.feature_vectors[vector_index], learned_shape.feature_vectors[vector_index]);
+                if(new_shape.feature_vectors[vector_index] == learned_shape.feature_vectors[vector_index]){
+                    match++;
+                }
+            }
+            if(match > max_match){
+                max_match = match;
+                max_match_index = database_index;
+                printf("dound max match: %c  with match: %d\n", database[database_index].character, match);
+            }
+        }
+    }
+    if(max_match_index != -1){
+        printf("MATCHED::::::::::: %20c\n", database[max_match_index].character);
+    } else {
+        puts("NO MATCH FOUND!");
+    }
 
 }
 
+
+IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
+    IMAGE_CONTEXT ctx = read_image(file_name);
+    
+    ALLOCATE_BUFFER(grayscale_image, SIZE);
+    CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
+    SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
+    CHANNELS = 1;
+    free(ctx.image_start);
+    ctx.image_start = grayscale_image;
+    return ctx;
+}
 
 void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count) {
     FOR(i, collection_count) {
@@ -282,6 +352,13 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
             sprintf(file_name, "output/shapes/%d.fv", image);
             puts(file_name);
             fvout = fopen(file_name, "w+");
+
+/*
+            for(int i = 0; i < 256; i++){
+                printf("%f\n", collection[image].feature_vectors[i]);
+            }
+  
+  */
             fwrite(collection[image].feature_vectors, sizeof(double), NUMBER_OF_FEATURE_VECTORS, fvout);
             free(collection[image].feature_vectors);
         } else {
@@ -323,7 +400,6 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
                 database[count].character = character;
                 database[count++].feature_vectors = fv;
             }
-            
             read_files++;
         }
         *database_count = count;
@@ -338,9 +414,14 @@ double *read_feature_vector(const char *file_name) {
 
     if(vector_pointer){
         fv = (double *)calloc(NUMBER_OF_FEATURE_VECTORS, sizeof(double));
-        fread(fv, sizeof(double), NUMBER_OF_FEATURE_VECTORS, vector_pointer);
+        int readData = fread(fv, sizeof(double), NUMBER_OF_FEATURE_VECTORS, vector_pointer);
+
+        for(int i = 0; i < NUMBER_OF_FEATURE_VECTORS; i++){
+            printf("%f\n", fv[i]);
+        }
         fclose(vector_pointer);
     }
+    
     return fv;
 }
 
