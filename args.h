@@ -15,3 +15,9 @@ char *crop_filename(char *filename){
     while(filename[i--] != '\\' && i);
     return filename + i + 2;
 }
+
+void trim_dir_backslash(char *dir){
+    while(*dir++);
+    dir--;
+    if(*--dir == '\\') *dir = '\0';
+}
