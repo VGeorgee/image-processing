@@ -95,6 +95,7 @@ IMAGE_CONTEXT read_image(char *file_name);
 double *read_feature_vector(const char *file_name);
 void read_directory(const char *dir_prefix, const char *dir, const char start, const char end, IMAGE_CONTEXT *database, int *database_count);
 void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir);
+IMAGE_CONTEXT read_and_binarize_img(char *file_name);
 
 #ifdef DEBUG
 #   define DEBUG(s) printf("\n[%s]\n", s)
