@@ -5,6 +5,14 @@
 #include "walsh.h"
 #include "args.h"
 
+#ifndef BINARY_TRESHOLD
+#   define BINARY_TRESHOLD 140
+#endif
+#define MAX_NUMBER_OF_SHAPES 1500
+#define FEATURE_VECTOR_SAMPLING 16
+#define NUMBER_OF_FEATURE_VECTORS FEATURE_VECTOR_SAMPLING * FEATURE_VECTOR_SAMPLING
+
+
 //brightness transformation
     //grays-scale
         //tresholding
@@ -36,7 +44,7 @@ int main(int argc, char **argv) {
         printf("Error in loading the image\n");
         exit(1);
     }
-    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
+    printf("\nLoaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
 
 
     int gray_channels = CHANNELS == 4 ? 2 : 1;
@@ -58,7 +66,7 @@ int main(int argc, char **argv) {
     ctx.image_start = binarized;
 
 
-    NEW_LIST(IMAGE_CONTEXT, collection, 1500);
+    NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
     collect_shapes(binarized, collection, &collection_count, ctx);
     save_collection(collection, collection_count, "");
 
@@ -74,9 +82,9 @@ int main(int argc, char **argv) {
 }
 
 // read pic ---
-// segment shapes
-// calculate vectors
-// save shapes and vectors to output
+// segment shapes ---
+// calculate vectors ---
+// save shapes and vectors to output ---
 int segment(char **argv) {
     IMAGE_CONTEXT ctx = read_image(argv[get_index_of_param(argv, "-in")]);
     
@@ -92,23 +100,23 @@ int segment(char **argv) {
     
     ctx.image_start = binarized;
 
-    NEW_LIST(IMAGE_CONTEXT, collection, 1500);
-    for(int i = 0; i < 1500; i++){
-        if(collection[i].feature_vectors != NULL ||collection[i].image_start != NULL || collection[i].height != 0){
-            printf("Bajvan\n");
-        }
-    }
+    NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
+
+    DEBUG("Collecting shapes");
     collect_shapes(binarized, collection, &collection_count, ctx);
 
+    DEBUG("Calculating feature vectors");
     calculate_feature_vectors(collection, collection_count);
 
+    DEBUG("Saving collection");
     save_collection(collection, collection_count, "");
 
-    puts("Segmentation ran succesfully!");
+    puts("Ran succesfully!");
 
     free(histogram_equalized_img);
     free(binarized);
     free(grayscale_image);
+
     return 0;
 }
 
@@ -124,12 +132,9 @@ int extract(char **argv){
 
 
 void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count) {
-    puts("Henloa!");
     FOR(i, collection_count) {
-        collection[i].feature_vectors = calloc(256, sizeof(double));
-        generate_feat_vectors(collection[i].feature_vectors, collection[i].image_start, 16);
+        collection[i].feature_vectors = generate_feat_vectors(collection[i].image_start, FEATURE_VECTOR_SAMPLING);
     }
-    puts("Henlob!");
 }
 
 PROCEDURE(convert_to_grayscale) {
@@ -156,7 +161,7 @@ PROCEDURE(treshold_image) {
 
 PROCEDURE(binarize_image) {
     ITERATE_IMAGE {
-        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), 140));
+        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), BINARY_TRESHOLD));
     }
 }
 
@@ -251,15 +256,16 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
         puts(file_name);
         stbi_write_jpg(file_name, 64, 64, 1, collection[image].image_start, 100);
 
-        printf("!!! Feat vectors must be initialized!!!\n");
         
         FILE *fvout;
         if(collection[image].feature_vectors) {
             sprintf(file_name, "output/shapes/%d.fv", image);
             puts(file_name);
             fvout = fopen(file_name, "w+");
-            fwrite(collection[image].feature_vectors, sizeof(double), 256, fvout);
+            fwrite(collection[image].feature_vectors, sizeof(double), NUMBER_OF_FEATURE_VECTORS, fvout);
             free(collection[image].feature_vectors);
+        } else {
+            puts("\n[!!! Feat vectors must be initialized!!!]\n");
         }
         fclose(fvout);
     }
