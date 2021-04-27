@@ -105,10 +105,11 @@ IMAGE_CONTEXT read_image(char *file_name){
     return ctx;
 }
 
-
-
-
-
+#ifdef DEBUG
+#   define DEBUG(s) printf("\n[%s]\n", s)
+#else
+#   define DEBUG(s) printf("\n[%s]\n", s)
+#endif
 
 int cmp(const void *a,const void *b){
     int *pa = (int *)a;
