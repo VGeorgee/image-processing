@@ -18,6 +18,7 @@ typedef struct image_context {
     int start_x;
     int start_y;
     double *feature_vectors;
+    char character;
 } IMAGE_CONTEXT;
 
 typedef struct point{
@@ -90,20 +91,10 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir);
 int segment(char **argv);
 int extract(char **argv);
 void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count);
-
-
-IMAGE_CONTEXT read_image(char *file_name){
-    IMAGE_CONTEXT ctx;
-
-    ctx.image_start = stbi_load(file_name, &WIDTH, &HEIGHT, &CHANNELS, 0);
-    if(ctx.image_start == NULL) {
-        printf("Error in loading the image\n");
-        exit(1);
-    }
-    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
-
-    return ctx;
-}
+IMAGE_CONTEXT read_image(char *file_name);
+double *read_feature_vector(const char *file_name);
+void read_directory(const char *dir_prefix, const char *dir, const char start, const char end, IMAGE_CONTEXT *database, int *database_count);
+void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir);
 
 #ifdef DEBUG
 #   define DEBUG(s) printf("\n[%s]\n", s)
