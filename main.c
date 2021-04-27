@@ -27,19 +27,12 @@
 
 
 int main(int argc, char **argv) {
-    //printf("%p\n", read_feature_vector(argv[1]));
-    //read_image(argv[1]);
-
-/*
-    NEW_LIST(IMAGE_CONTEXT, database, 1400);
-    initialize_database(database, &database_count, argv[1]);
-    //read_directory("input", "supervised/digits", '0', '9', database, &database_count);
-    FOR(i, database_count){
-        printf("element: %c %p\n", database[i].character, database[i].feature_vectors);
-    }
-  */
-    extract(argv);
-    return 0;
+    if(get_index_of_param(argv, "-segment") > 0){
+        return segment(argv);
+    } else if(get_index_of_param(argv, "-extract") > 0) {
+        return extract(argv);
+    } 
+    return -1;
 }
 
 int main2(int argc, char **argv) {
@@ -168,45 +161,53 @@ int extract(char **argv){
     calculate_feature_vectors(collection, collection_count);
 
 
+/*
 
-    /////
     for(int i = 0; i < 256; i++){
         printf("%f\n", collection[0].feature_vectors[i]);
     }
-    save_collection(collection, collection_count, "");
+*/
 
-
-    /////
-
+    char extracted_characters[10000] = {'\0'};
+    int extracted_characters_lenght = 0;
 
     DEBUG("Matching feature vectors");
 
-    int max_match_index = -1;
-    int max_match = 0;
     FOR(collection_index, collection_count){
+        
+        int max_match_index = -1;
+        int max_match = 0;
+
         FOR(database_index, database_count){
             IMAGE_CONTEXT new_shape = collection[collection_index];
             IMAGE_CONTEXT learned_shape = database[database_index];
-            printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
+            //printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
             int match = 0;
             for(int vector_index = 0; vector_index < NUMBER_OF_FEATURE_VECTORS; vector_index++){
-                //printf("%f == %f", new_shape.feature_vectors[vector_index], learned_shape.feature_vectors[vector_index]);
                 if(new_shape.feature_vectors[vector_index] == learned_shape.feature_vectors[vector_index]){
                     match++;
+                } else {
+                    //printf("%f == %f\nindex: %d\n", new_shape.feature_vectors[vector_index], learned_shape.feature_vectors[vector_index], vector_index);
                 }
             }
             if(match > max_match){
                 max_match = match;
                 max_match_index = database_index;
-                printf("dound max match: %c  with match: %d\n", database[database_index].character, match);
+                //printf("found max match: %c  with match: %d\n", database[database_index].character, match);
             }
         }
+
+        if(max_match_index != -1){
+            //printf("MATCHED: %3c\n", database[max_match_index].character);
+
+            extracted_characters[extracted_characters_lenght++] = database[max_match_index].character;
+            extracted_characters[extracted_characters_lenght] = '\0';
+        } else {
+            //puts("NO MATCH FOUND!");
+        }
     }
-    if(max_match_index != -1){
-        printf("MATCHED::::::::::: %20c\n", database[max_match_index].character);
-    } else {
-        puts("NO MATCH FOUND!");
-    }
+    printf("%s\n", extracted_characters);
+    return 0;
 
 }
 
@@ -216,10 +217,19 @@ IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     
     ALLOCATE_BUFFER(grayscale_image, SIZE);
     CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
-    SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
     CHANNELS = 1;
+
+    ALLOCATE_BUFFER(binary_image, SIZE);
+    CALL_PROC(binarize_image, binary_image, grayscale_image);
+    SAVE_IMAGE("output/binary_image.jpg", grayscale_image);
+
+   /// MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
+    //SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
+    /*
     free(ctx.image_start);
-    ctx.image_start = grayscale_image;
+    free(grayscale_image);
+*/
+    ctx.image_start = binary_image;
     return ctx;
 }
 
@@ -301,7 +311,7 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
 
             PAINT_SHAPE();
 
-            if(shape_points_count > 100) {
+            if(shape_points_count > 30) {
                 ALLOCATE_BUFFER(target, RECURSION_SIZE);
                 WHITEN(target, RECURSION_SIZE);
 
@@ -351,7 +361,7 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
         if(collection[image].feature_vectors) {
             sprintf(file_name, "output/shapes/%d.fv", image);
             puts(file_name);
-            fvout = fopen(file_name, "w+");
+            fvout = fopen(file_name, "wb+");
 
 /*
             for(int i = 0; i < 256; i++){
@@ -409,16 +419,17 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
 
 
 double *read_feature_vector(const char *file_name) {
-    FILE *vector_pointer = fopen(file_name, "r");
+    FILE *vector_pointer = fopen(file_name, "rb");
     double *fv = NULL;
 
     if(vector_pointer){
         fv = (double *)calloc(NUMBER_OF_FEATURE_VECTORS, sizeof(double));
         int readData = fread(fv, sizeof(double), NUMBER_OF_FEATURE_VECTORS, vector_pointer);
-
+        //printf("READDATA::: %d\n", readData);
+        /*
         for(int i = 0; i < NUMBER_OF_FEATURE_VECTORS; i++){
             printf("%f\n", fv[i]);
-        }
+        }*/
         fclose(vector_pointer);
     }
     

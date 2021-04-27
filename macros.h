@@ -238,7 +238,8 @@ int collected_shapes_count = 0;
 int shape_sorter(const void *a, const void *b){
     IMAGE_CONTEXT *pa = (IMAGE_CONTEXT *)a;
     IMAGE_CONTEXT *pb = (IMAGE_CONTEXT *)b;
-    if(pa->start_x != pb->start_x ){//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
+    //&& !(((pa->start_x + pa->height) < pb->start_x ) || ((pb->start_x + pb->height) < pa->start_x))
+    if(pa->start_x != pb->start_x ) {//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
         return pa->start_x - pb->start_x;
     }
     return pa->start_y - pb->start_y;
