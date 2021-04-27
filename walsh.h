@@ -26,11 +26,13 @@ double walsh_transform(unsigned char *target, int u, int v){
 }
 
 
-void generate_feat_vectors(double *feat_vectors, unsigned char *target, int uv){
+double *generate_feat_vectors(unsigned char *target, int uv){
     int number_of_vectors = 0;
+    double *feat_vectors = (double *)calloc(uv * uv, sizeof(double));
     for(int i = 0; i < uv; i++) {
         for(int j = 0; j < uv; j++) {
             feat_vectors[number_of_vectors++] = walsh_transform(target, i, j);
         }
     }
+    return feat_vectors;
 }
