@@ -101,7 +101,7 @@ int cmp(const void *a,const void *b){
 }
 
 
-#define NEW_LIST(type, name, size) type name[size] = {}; int name##_length = size, name##_count = 0;
+#define NEW_LIST(type, name, size) type name[size] = {0}; int name##_length = size, name##_count = 0;
 #define SORT(array) qsort(array, array##_length, sizeof(int), cmp)
 #define MEDIAN(array) array[array##_length / 2]
 #define PUSH(array, value) array[array##_count++] = value
