@@ -27,6 +27,7 @@
 int debug = 0;
 
 int main(int argc, char **argv) {
+    init_walsh();
     if(has_arg(argv, argc, "-debug")){
         debug = 1;
     }
@@ -191,9 +192,9 @@ int extract(char **argv, int argc){
             if(match > max_match){
                 max_match = match;
                 max_match_index = database_index;
-                //printf("found max match: %c  with match: %d\n", database[database_index].character, match);
             }
         }
+        //printf("found max match: %d\n", max_match);
         avg_width += collection[collection_index - 1].original_width;
         if(max_match_index != -1){
             //printf("MATCHED: %3c\n", database[max_match_index].character);
@@ -212,7 +213,8 @@ int extract(char **argv, int argc){
             //puts("NO MATCH FOUND!");
         }
     }
-    printf("%s\n", extracted_characters);
+    DEBUG("Extracted text");
+    printf("\n%s\n", extracted_characters);
     return 0;
 }
 
