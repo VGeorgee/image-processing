@@ -26,15 +26,6 @@ typedef struct point{
     int y;
 } POINT;
 
-typedef struct learned_image {
-    PIXEL_ARRAY image_start;
-    int width;
-    int height;
-    int channels;
-    char character;
-    double feature_vectors[256];
-} LEARNED_IMAGE_CONTEXT;
-
  
 POINT shape_points[240000000];
 int shape_points_count;
