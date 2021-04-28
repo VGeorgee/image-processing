@@ -4,14 +4,24 @@
 #define BIT(number, nth) (!!(number & (1 << nth)))
 
 
-double kernel_function(int x, int y, int u, int v){
-    double sum = 1;
-    const int n = 6;
-    for(int i = 0; i < n; i++ ){
-        sum *= (((BIT(x, i) * BIT(u, n - i - 1)) + (BIT(y, i) * BIT(v, n - i - 1))) % 2) == 1 ? -1 : 1;
+int kernel[64][64] = {0};
+
+void mini_kernel(int x, int u){
+    kernel[x][u] = (BIT(x, 0) * BIT(u, 5)) % 2 == 1 ? -1 : 1;
+    kernel[x][u] *= (BIT(x, 1) * BIT(u, 4)) % 2 == 1 ? -1 : 1;
+    kernel[x][u] *= (BIT(x, 2) * BIT(u, 3)) % 2 == 1 ? -1 : 1;
+    kernel[x][u] *= (BIT(x, 3) * BIT(u, 2)) % 2 == 1 ? -1 : 1;
+    kernel[x][u] *= (BIT(x, 4) * BIT(u, 1)) % 2 == 1 ? -1 : 1;
+    kernel[x][u] *= (BIT(x, 5) * BIT(u, 0)) % 2 == 1 ? -1 : 1;
+}
+
+void init_walsh(){
+    for(int x = 0; x < 64; x++){
+        for(int y = 0; y < 64; y++){
+            mini_kernel(x, y);
+        }
     }
-    return sum * ((double) 1 / 64.0);
-} 
+}
 
 double walsh_transform(unsigned char *target, int u, int v){
     IMAGE_CONTEXT ctx = { .width = 64, .height = 64, .channels = 1};
@@ -19,10 +29,10 @@ double walsh_transform(unsigned char *target, int u, int v){
     double sum = 0;
     for(x = 0; x < 64; x++) {
         for(y = 0; y < 64; y++) {
-            sum += GET_PIXEL(target, x, y) * kernel_function(x, y, u, v);
+            sum += GET_PIXEL(target, x, y) * kernel[x][u] * kernel[y][v];
         }
     }
-    return sum;
+    return sum * ((double) 1 / 64.0);
 }
 
 
