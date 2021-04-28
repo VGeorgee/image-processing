@@ -12,6 +12,8 @@
 
 #define MAX_NUMBER_OF_LEARNED_SHAPES 5000
 
+#define PIXEL_COUNT_CUTOFF 100
+
 //brightness transformation
     //grays-scale
         //tresholding
@@ -19,18 +21,19 @@
     //brightness corrections
 
 
-   // NEW_LIST(LEARNED_IMAGE_CONTEXT, learned_characters, )
-
-
 // ocr -segment -in filename -out filename
 // ocr -extract -db directory -in filename -out filename
 
+int debug = 0;
 
 int main(int argc, char **argv) {
-    if(get_index_of_param(argv, "-segment") > 0){
-        return segment(argv);
-    } else if(get_index_of_param(argv, "-extract") > 0) {
-        return extract(argv);
+    if(has_arg(argv, argc, "-debug")){
+        debug = 1;
+    }
+    if(get_index_of_param(argv, argc, "-segment") > 0){
+        return segment(argv, argc);
+    } else if(get_index_of_param(argv, argc, "-extract") > 0) {
+        return extract(argv, argc);
     } 
     return -1;
 }
@@ -41,7 +44,7 @@ int main2(int argc, char **argv) {
         return 1;
     }
 
-    segment(argv);
+    segment(argv, argc);
 
     return 0;
 
@@ -93,8 +96,8 @@ int main2(int argc, char **argv) {
 // segment shapes ---
 // calculate vectors ---
 // save shapes and vectors to output ---
-int segment(char **argv) {
-    IMAGE_CONTEXT ctx = read_image(argv[get_index_of_param(argv, "-in")]);
+int segment(char **argv, int argc) {
+    IMAGE_CONTEXT ctx = read_image(argv[get_index_of_param(argv, argc, "-in")]);
     
     ALLOCATE_BUFFER(grayscale_image, SIZE);
     CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
@@ -134,16 +137,16 @@ int segment(char **argv) {
 // calculate vectors
 // search vectors
 // save text to output
-int extract(char **argv){
+int extract(char **argv, int argc){
 
-    int index_of_db = get_index_of_param(argv, "-db");
+    int index_of_db = get_index_of_param(argv, argc, "-db");
     if(index_of_db < 0){
         fprintf(stderr, "No input directory provided!\n");
         return 1;
     }
 
 
-    int index_of_img = get_index_of_param(argv, "-in");
+    int index_of_img = get_index_of_param(argv, argc, "-in");
     if(index_of_img < 0){
         fprintf(stderr, "No input image provided!\n");
         return 1;
@@ -156,7 +159,7 @@ int extract(char **argv){
     NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
     DEBUG("Collecting shapes");
     collect_shapes(ctx.image_start, collection, &collection_count, ctx);
-    printf("found shapes = %d\n", collection_count);
+    printf("\tfound shapes = %d\n", collection_count);
     DEBUG("Calculating feature vectors");
     calculate_feature_vectors(collection, collection_count);
 
@@ -172,7 +175,7 @@ int extract(char **argv){
     int extracted_characters_lenght = 0;
 
     DEBUG("Matching feature vectors");
-
+    int avg_width = 0;
     FOR(collection_index, collection_count){
         
         int max_match_index = -1;
@@ -182,24 +185,27 @@ int extract(char **argv){
             IMAGE_CONTEXT new_shape = collection[collection_index];
             IMAGE_CONTEXT learned_shape = database[database_index];
             //printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
-            int match = 0;
-            for(int vector_index = 0; vector_index < NUMBER_OF_FEATURE_VECTORS; vector_index++){
-                if(new_shape.feature_vectors[vector_index] == learned_shape.feature_vectors[vector_index]){
-                    match++;
-                } else {
-                    //printf("%f == %f\nindex: %d\n", new_shape.feature_vectors[vector_index], learned_shape.feature_vectors[vector_index], vector_index);
-                }
-            }
+            
+            int match = compare_vectors_a(new_shape.feature_vectors, learned_shape.feature_vectors, NUMBER_OF_FEATURE_VECTORS);
+
             if(match > max_match){
                 max_match = match;
                 max_match_index = database_index;
                 //printf("found max match: %c  with match: %d\n", database[database_index].character, match);
             }
         }
-
+        avg_width += collection[collection_index - 1].original_width;
         if(max_match_index != -1){
             //printf("MATCHED: %3c\n", database[max_match_index].character);
-
+            if(collection_index > 1){
+                if( collection[collection_index - 1].start_y >= collection[collection_index].start_y){
+                    extracted_characters[extracted_characters_lenght++] = '\n';
+                    extracted_characters[extracted_characters_lenght] = '\0';
+                } else if( (collection[collection_index - 1].start_y +  collection[collection_index - 1].original_width + (avg_width / (double)collection_index) * 0.8) < collection[collection_index].start_y) {
+                    extracted_characters[extracted_characters_lenght++] = ' ';
+                    extracted_characters[extracted_characters_lenght] = '\0';
+                }
+            }
             extracted_characters[extracted_characters_lenght++] = database[max_match_index].character;
             extracted_characters[extracted_characters_lenght] = '\0';
         } else {
@@ -208,9 +214,19 @@ int extract(char **argv){
     }
     printf("%s\n", extracted_characters);
     return 0;
-
 }
 
+int compare_vectors_a(double *a, double *b, int count) {
+    int sum = 0;
+    FOR(i, count) sum += a[i] == b[i];
+    return sum;
+}
+
+int compare_vectors_b(double *a, double *b, int count, int size) {
+    int sum = 0;
+    FOR_INCREMENT(i, count / (size / sizeof(double)), size) sum += memcmp(a, b, size) == 0;
+    return sum;
+}
 
 IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     IMAGE_CONTEXT ctx = read_image(file_name);
@@ -221,14 +237,14 @@ IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
 
     ALLOCATE_BUFFER(binary_image, SIZE);
     CALL_PROC(binarize_image, binary_image, grayscale_image);
-    SAVE_IMAGE("output/binary_image.jpg", grayscale_image);
+    SAVE_IMAGE("output/binary_image.jpg", binary_image);
 
    /// MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
     //SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
-    /*
+
     free(ctx.image_start);
     free(grayscale_image);
-*/
+
     ctx.image_start = binary_image;
     return ctx;
 }
@@ -303,24 +319,29 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
 
     int number_of_shapes = 0;
     char file_name[200] = {0};
-    
-    ITERATE_IMAGE_INTERLEAVED(3) {
+
+
+    ITERATE_IMAGE_INTERLEAVED(1) {
         if(is_shape(PIXEL_OF_ITERATION(original))) {
 
             NEW_RECURSION_CONTEXT();
 
             PAINT_SHAPE();
 
-            if(shape_points_count > 30) {
+            if(shape_points_count > PIXEL_COUNT_CUTOFF) {
                 ALLOCATE_BUFFER(target, RECURSION_SIZE);
                 WHITEN(target, RECURSION_SIZE);
 
                 NEW_IMAGE_CONTEXT(target);
+                int offset = j;
                 FOR_RANGE(index, 1, shape_points_count){
+                    if(shape_points[index].y < offset){
+                        offset = shape_points[index].y;
+                    }
                     GET_CONTEXTED_PIXEL(target, target_ctx, (shape_points[index].x - shape_points[0].x), (shape_points[index].y - shape_points[0].y)) = 0;
                 }
-
                 PUSH_SHAPE(target_ctx);
+                collected_shapes[collected_shapes_count - 1].start_y = offset ;
             }
         }
     }
@@ -337,6 +358,7 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
         
         stbir_resize_uint8(shape.image_start, shape.width, shape.height, 0, scaled_buffer, 64, 64, 0, 1);
         IMAGE_CONTEXT scaled = shape;
+        scaled.original_width = shape.width;
         scaled.height = 64;
         scaled.width = 64;
         scaled.channels = 1;
@@ -380,9 +402,11 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
 
 
 void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir) {
+    DEBUG("Initializing database");
     read_directory(dir, "digits", '0', '9', database, database_count);
     read_directory(dir, "lower", 'a', 'z', database, database_count);
     read_directory(dir, "upper", 'A', 'Z', database, database_count);
+    printf("\tDatabase entries read: %5d\n", *database_count);
 }
 
 void read_directory(const char *dir_prefix, const char *dir, const char start, const char end, IMAGE_CONTEXT *database, int *database_count) {
@@ -391,7 +415,7 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
     char dir_prefix_trimmed[200];
     strcpy(dir_prefix_trimmed, dir_prefix);
     trim_dir_backslash(dir_prefix_trimmed);
-
+    
     for(char character = start; character <= end; character++) {
         if(count >= MAX_NUMBER_OF_LEARNED_SHAPES){
             fprintf(stderr, "MAX NUMBER OF DATABASE REACHED! [change MAX_NUMBER_OF_LEARNED_SHAPES macro to reach higher capacity]\n");
@@ -404,16 +428,18 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
         char file_name[1000];
         while(fv) {
             sprintf(file_name, "%s\\%s\\%c\\%d.fv", dir_prefix_trimmed, dir, character, read_files);
-            puts(file_name);
             fv = read_feature_vector(file_name);
             if(fv) {
+                if(debug){
+                    printf("\t%s\n", file_name);
+                }
                 database[count].character = character;
                 database[count++].feature_vectors = fv;
             }
             read_files++;
         }
-        *database_count = count;
     }
+    *database_count = count;
 }
 
 
@@ -439,13 +465,15 @@ double *read_feature_vector(const char *file_name) {
 
 IMAGE_CONTEXT read_image(char *file_name) {
     IMAGE_CONTEXT ctx;
+    DEBUG("Loading image");
 
     ctx.image_start = stbi_load(file_name, &WIDTH, &HEIGHT, &CHANNELS, 0);
     if(ctx.image_start == NULL) {
         printf("Error in loading the image\n");
         exit(1);
     }
-    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
+
+    printf("\tLoaded image: [%d X %d X %d] - [%s]\n", WIDTH, HEIGHT, CHANNELS, file_name);
 
     return ctx;
 }

@@ -14,6 +14,7 @@ typedef struct image_context {
     PIXEL_ARRAY image_start;
     int width;
     int height;
+    int original_width;
     int channels;
     int start_x;
     int start_y;
@@ -79,14 +80,16 @@ unsigned char calculate_grayscale_value(unsigned char *pixel);
 void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_counter, IMAGE_CONTEXT ctx);
 void scale_image(PIXEL_ARRAY target, PIXEL_ARRAY original, IMAGE_CONTEXT ctx, int target_size);
 void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir);
-int segment(char **argv);
-int extract(char **argv);
+int segment(char **argv, int argc);
+int extract(char **argv, int argc);
 void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count);
 IMAGE_CONTEXT read_image(char *file_name);
 double *read_feature_vector(const char *file_name);
 void read_directory(const char *dir_prefix, const char *dir, const char start, const char end, IMAGE_CONTEXT *database, int *database_count);
 void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir);
 IMAGE_CONTEXT read_and_binarize_img(char *file_name);
+
+int compare_vectors_a(double *a, double *b, int count);
 
 #ifdef DEBUG
 #   define DEBUG(s) printf("\n[%s]\n", s)
@@ -221,19 +224,45 @@ int collected_shapes_count = 0;
 #define PUSH_SHAPE(ctx) \
         collected_shapes[collected_shapes_count] = ctx;\
         collected_shapes[collected_shapes_count].start_x = i; \
-        collected_shapes[collected_shapes_count].start_y = j; \
+        collected_shapes[collected_shapes_count].start_y = j;  \
         collected_shapes_count++; \
 
 #define GET_SHAPE(index) collected_shapes[index];
+
+
+
+
+
+
+#define IN_INTERVAL(a, b, interval) ( ((a + interval) > b))
 
 int shape_sorter(const void *a, const void *b){
     IMAGE_CONTEXT *pa = (IMAGE_CONTEXT *)a;
     IMAGE_CONTEXT *pb = (IMAGE_CONTEXT *)b;
     //&& !(((pa->start_x + pa->height) < pb->start_x ) || ((pb->start_x + pb->height) < pa->start_x))
-    if(pa->start_x != pb->start_x ) {//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
-        return pa->start_x - pb->start_x;
+    //pa->start_x != pb->start_x && 
+
+/*
+    if(pa->start_x == 105 || pb->start_x == 105) {
+        printf("[%5d]s %5dh [%5d]s %5dh [%d]y [%d]y\n", pa->start_x, pa->height, pb->start_x, pb->height, pa->start_y, pb->start_y);
     }
-    return pa->start_y - pb->start_y;
+  */
+
+
+    if(pa->start_x == pb->start_x){
+        return pa->start_y - pb->start_y;
+    }
+
+    int max_height = pa->height;
+    if(max_height < pb->height){
+        max_height = pb->height;
+    }
+
+    if(IN_INTERVAL(pa->start_x, pb->start_x, max_height) && IN_INTERVAL(pb->start_x, pa->start_x, max_height)) {//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
+        //printf("%5ds %5dh %5ds %5dh %dy %dy\n", pa->start_x, pa->height, pb->start_x, pb->height, pa->start_y, pb->start_y);
+        return pa->start_y - pb->start_y;
+    }
+    return pa->start_x - pb->start_x;
 }
 
 #define SORT_SHAPES() qsort(collected_shapes, collected_shapes_count, sizeof(IMAGE_CONTEXT), shape_sorter);
