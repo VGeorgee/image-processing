@@ -65,7 +65,7 @@ int shape_points_count;
 #define INT_ARRAY(name, ...) int name[] = {__VA_ARGS__}
 #define ADD(a, b) a += b
 #define DIV(a, b) (a / b)
-#define ABS(a) (a < 0 ? -a : a)
+#define ABS(a) ((a) < 0 ? -(a) : (a))
 #define DISTINCT_BYTE_VALUES 256
 #define ZEROED_ARRAY(name, length) int name[length] = { 0 }
 
@@ -89,7 +89,7 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
 void initialize_database(IMAGE_CONTEXT *database, int *database_count, const char *dir);
 IMAGE_CONTEXT read_and_binarize_img(char *file_name);
 
-int compare_vectors_a(double *a, double *b, int count);
+double compare_vectors_a(double *a, double *b, int count);
 
 #ifdef DEBUG
 #   define DEBUG(s) printf("\n[%s]\n", s)
@@ -179,7 +179,6 @@ typedef struct {
 int recurse_array_i[] = {1, 0, 0, -1};
 int recurse_array_j[] = {0, 1, -1, 0};
 
-/// TOUCHED PIXELS MUST BE REPAINTED TO ORIGINAL COLOR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, POINT *array, int *array_size, int i, int j){
     PIXEL_OF_ITERATION(ctx.image_start) = TOUCHED;
 
@@ -197,7 +196,6 @@ void calculate_bounds_of_shape(RECURSION_CONTEXT *rctx, IMAGE_CONTEXT ctx, POINT
         int r_i = recurse_array_i[recurse] + i;
         int r_j = recurse_array_j[recurse] + j;
         if(is_in_boundary(r_i, r_j) && (GET_PIXEL(ctx.image_start, r_i, r_j) == PIXEL_TO_REPAINT)){
-            //printf("%d %d\n", r_i, r_j);
             if(r_i < GET_BOUND(0)){
                 GET_BOUND(0) = r_i;
             }
@@ -239,15 +237,7 @@ int collected_shapes_count = 0;
 int shape_sorter(const void *a, const void *b){
     IMAGE_CONTEXT *pa = (IMAGE_CONTEXT *)a;
     IMAGE_CONTEXT *pb = (IMAGE_CONTEXT *)b;
-    //&& !(((pa->start_x + pa->height) < pb->start_x ) || ((pb->start_x + pb->height) < pa->start_x))
-    //pa->start_x != pb->start_x && 
-
-/*
-    if(pa->start_x == 105 || pb->start_x == 105) {
-        printf("[%5d]s %5dh [%5d]s %5dh [%d]y [%d]y\n", pa->start_x, pa->height, pb->start_x, pb->height, pa->start_y, pb->start_y);
-    }
-  */
-
+    
 
     if(pa->start_x == pb->start_x){
         return pa->start_y - pb->start_y;
@@ -258,8 +248,7 @@ int shape_sorter(const void *a, const void *b){
         max_height = pb->height;
     }
 
-    if(IN_INTERVAL(pa->start_x, pb->start_x, max_height) && IN_INTERVAL(pb->start_x, pa->start_x, max_height)) {//&& !((pa->start_x + 5) > pb->start_x) && (pa->start_x - 5) < pb->start_x){
-        //printf("%5ds %5dh %5ds %5dh %dy %dy\n", pa->start_x, pa->height, pb->start_x, pb->height, pa->start_y, pb->start_y);
+    if(IN_INTERVAL(pa->start_x, pb->start_x, max_height) && IN_INTERVAL(pb->start_x, pa->start_x, max_height)) {
         return pa->start_y - pb->start_y;
     }
     return pa->start_x - pb->start_x;

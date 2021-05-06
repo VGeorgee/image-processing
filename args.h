@@ -4,7 +4,7 @@
 int get_index_of_param(char **argv, int argc, const char *param) {
     for(int i = 1; i < argc; i++){
         if(!strcmp(argv[i], param)){
-            return i +1;
+            return i + 1;
         }
     }
     return -1;

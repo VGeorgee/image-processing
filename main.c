@@ -5,14 +5,14 @@
 #include "walsh.h"
 #include "args.h"
 
-#define BINARY_TRESHOLD 140
-#define MAX_NUMBER_OF_SHAPES 1500
+#define BINARY_TRESHOLD 200
+#define MAX_NUMBER_OF_SHAPES 3000
 #define FEATURE_VECTOR_SAMPLING 16
 #define NUMBER_OF_FEATURE_VECTORS FEATURE_VECTOR_SAMPLING * FEATURE_VECTOR_SAMPLING
 
 #define MAX_NUMBER_OF_LEARNED_SHAPES 5000
 
-#define PIXEL_COUNT_CUTOFF 100
+#define PIXEL_COUNT_CUTOFF 20
 
 //brightness transformation
     //grays-scale
@@ -24,74 +24,31 @@
 // ocr -segment -in filename -out filename
 // ocr -extract -db directory -in filename -out filename
 
+int binary_treshold = BINARY_TRESHOLD;
+
 int debug = 0;
 
 int main(int argc, char **argv) {
+
     init_walsh();
+
     if(has_arg(argv, argc, "-debug")){
         debug = 1;
     }
-    if(get_index_of_param(argv, argc, "-segment") > 0){
+
+    if(has_arg(argv, argc, "-b")){
+        binary_treshold = atoi(argv[get_index_of_param(argv, argc, "-b")]);
+    }
+
+    if(has_arg(argv, argc, "-segment")){
         return segment(argv, argc);
-    } else if(get_index_of_param(argv, argc, "-extract") > 0) {
+    } else if(has_arg(argv, argc, "-extract")) {
         return extract(argv, argc);
     } 
+    
     return -1;
 }
 
-int main2(int argc, char **argv) {
-    if(argc < 6) {
-        fprintf(stderr, "format: %s [-segment|-extract] -in filename -out filename", crop_filename(argv[0]));
-        return 1;
-    }
-
-    segment(argv, argc);
-
-    return 0;
-
-    IMAGE_CONTEXT ctx;
-
-    PIXEL_ARRAY img = stbi_load(argv[1], &WIDTH, &HEIGHT, &CHANNELS, 0);
-    if(img == NULL) {
-        printf("Error in loading the image\n");
-        exit(1);
-    }
-    printf("\nLoaded image with a width of %dpx, a height of %dpx and %d channels\n", WIDTH, HEIGHT, CHANNELS);
-
-
-    int gray_channels = CHANNELS == 4 ? 2 : 1;
-    size_t gray_img_size = SIZE * gray_channels;
-
-
-
-    ALLOCATE_BUFFER(gray_img, gray_img_size);
-    CALL_PROC(convert_to_grayscale, gray_img, img);
-    SAVE_IMAGE("output/gray-scaled.jpg", gray_img);
-
-    CHANNELS = 1;
-
-    MAKE("output/tresholded.jpg", treshold_buffer, gray_img, treshold_image);
-    MAKE("output/histogram-equalized.jpg", histogram_equalized_img, gray_img, histogram_equalization);
-    MAKE("output/median-filtered.jpg", median_fileter_image, gray_img, median_filter);
-    MAKE("output/binarized.jpg", binarized, gray_img, binarize_image);
-    
-    ctx.image_start = binarized;
-
-
-    NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
-    collect_shapes(binarized, collection, &collection_count, ctx);
-    save_collection(collection, collection_count, "");
-
-
-    puts("Collection ran succesfully!");
-
-    free(treshold_buffer);
-    free(gray_img);
-    free(histogram_equalized_img);
-    free(binarized);
-
-    return 0;
-}
 
 // read pic ---
 // segment shapes ---
@@ -104,10 +61,8 @@ int segment(char **argv, int argc) {
     CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
     SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
     CHANNELS = 1;
-
-    // MAKE("output/tresholded.jpg", treshold_buffer, grayscale_image, treshold_image);
-    MAKE("output/histogram-equalized.jpg", histogram_equalized_img, grayscale_image, histogram_equalization);
-    MAKE("output/median-filtered.jpg", median_fileter_image, grayscale_image, median_filter);
+    
+  
     MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
     
     ctx.image_start = binarized;
@@ -125,7 +80,7 @@ int segment(char **argv, int argc) {
 
     puts("Ran succesfully!");
 
-    free(histogram_equalized_img);
+
     free(binarized);
     free(grayscale_image);
 
@@ -164,14 +119,6 @@ int extract(char **argv, int argc){
     DEBUG("Calculating feature vectors");
     calculate_feature_vectors(collection, collection_count);
 
-
-/*
-
-    for(int i = 0; i < 256; i++){
-        printf("%f\n", collection[0].feature_vectors[i]);
-    }
-*/
-
     char extracted_characters[10000] = {'\0'};
     int extracted_characters_lenght = 0;
 
@@ -180,29 +127,29 @@ int extract(char **argv, int argc){
     FOR(collection_index, collection_count){
         
         int max_match_index = -1;
-        int max_match = 0;
+        int max_match = INT_MAX;
 
         FOR(database_index, database_count){
             IMAGE_CONTEXT new_shape = collection[collection_index];
             IMAGE_CONTEXT learned_shape = database[database_index];
             //printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
             
-            int match = compare_vectors_a(new_shape.feature_vectors, learned_shape.feature_vectors, NUMBER_OF_FEATURE_VECTORS);
-
-            if(match > max_match){
-                max_match = match;
+            int diff = compare_vectors_a(new_shape.feature_vectors, learned_shape.feature_vectors, NUMBER_OF_FEATURE_VECTORS);
+           
+            if(diff < max_match){
+                max_match = diff;
                 max_match_index = database_index;
             }
         }
-        //printf("found max match: %d\n", max_match);
+        if(debug) printf("found max match: %d\n", max_match);
         avg_width += collection[collection_index - 1].original_width;
         if(max_match_index != -1){
-            //printf("MATCHED: %3c\n", database[max_match_index].character);
+            if(debug) printf("MATCHED: %3c\n", database[max_match_index].character);
             if(collection_index > 1){
                 if( collection[collection_index - 1].start_y >= collection[collection_index].start_y){
                     extracted_characters[extracted_characters_lenght++] = '\n';
                     extracted_characters[extracted_characters_lenght] = '\0';
-                } else if( (collection[collection_index - 1].start_y +  collection[collection_index - 1].original_width + (avg_width / (double)collection_index) * 0.8) < collection[collection_index].start_y) {
+                } else if( (collection[collection_index - 1].start_y +  collection[collection_index - 1].original_width + (avg_width / (double)collection_index) * 0.5) < collection[collection_index].start_y) {
                     extracted_characters[extracted_characters_lenght++] = ' ';
                     extracted_characters[extracted_characters_lenght] = '\0';
                 }
@@ -214,13 +161,15 @@ int extract(char **argv, int argc){
         }
     }
     DEBUG("Extracted text");
-    printf("\n%s\n", extracted_characters);
+    puts("----------------------------------------------------------------------");
+    printf("%s\n", extracted_characters);
+    puts("----------------------------------------------------------------------\n");
     return 0;
 }
 
-int compare_vectors_a(double *a, double *b, int count) {
-    int sum = 0;
-    FOR(i, count) sum += a[i] == b[i];
+double compare_vectors_a(double *a, double *b, int count) {
+    double sum = 0;
+    FOR(i, count) sum += ABS(a[i] - b[i]);
     return sum;
 }
 
@@ -230,6 +179,8 @@ int compare_vectors_b(double *a, double *b, int count, int size) {
     return sum;
 }
 
+
+
 IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     IMAGE_CONTEXT ctx = read_image(file_name);
     
@@ -237,13 +188,11 @@ IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     CALL_PROC(convert_to_grayscale, grayscale_image, ctx.image_start);
     CHANNELS = 1;
 
+
     ALLOCATE_BUFFER(binary_image, SIZE);
     CALL_PROC(binarize_image, binary_image, grayscale_image);
     SAVE_IMAGE("output/binary_image.jpg", binary_image);
-
-   /// MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
-    //SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
-
+    
     free(ctx.image_start);
     free(grayscale_image);
 
@@ -251,9 +200,11 @@ IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     return ctx;
 }
 
+
 void calculate_feature_vectors(IMAGE_CONTEXT *collection, int collection_count) {
     FOR(i, collection_count) {
         collection[i].feature_vectors = generate_feat_vectors(collection[i].image_start, FEATURE_VECTOR_SAMPLING);
+        
     }
 }
 
@@ -281,7 +232,7 @@ PROCEDURE(treshold_image) {
 
 PROCEDURE(binarize_image) {
     ITERATE_IMAGE {
-        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), BINARY_TRESHOLD));
+        APPEND_PIXEL(target, BINARIZE(PIXEL_OF_ITERATION(original), binary_treshold));
     }
 }
 
@@ -359,13 +310,14 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
         WHITEN(scaled_buffer, 64 * 64);
         
         stbir_resize_uint8(shape.image_start, shape.width, shape.height, 0, scaled_buffer, 64, 64, 0, 1);
+    
         IMAGE_CONTEXT scaled = shape;
         scaled.original_width = shape.width;
         scaled.height = 64;
         scaled.width = 64;
         scaled.channels = 1;
         scaled.image_start = scaled_buffer;
-
+        binarize_image(scaled_buffer, scaled_buffer, scaled);
         
         PUSH(array, scaled);
     }
@@ -387,12 +339,6 @@ void save_collection(IMAGE_CONTEXT *collection, int size, const char *dir) {
             puts(file_name);
             fvout = fopen(file_name, "wb+");
 
-/*
-            for(int i = 0; i < 256; i++){
-                printf("%f\n", collection[image].feature_vectors[i]);
-            }
-  
-  */
             fwrite(collection[image].feature_vectors, sizeof(double), NUMBER_OF_FEATURE_VECTORS, fvout);
             free(collection[image].feature_vectors);
         } else {
@@ -453,11 +399,6 @@ double *read_feature_vector(const char *file_name) {
     if(vector_pointer){
         fv = (double *)calloc(NUMBER_OF_FEATURE_VECTORS, sizeof(double));
         int readData = fread(fv, sizeof(double), NUMBER_OF_FEATURE_VECTORS, vector_pointer);
-        //printf("READDATA::: %d\n", readData);
-        /*
-        for(int i = 0; i < NUMBER_OF_FEATURE_VECTORS; i++){
-            printf("%f\n", fv[i]);
-        }*/
         fclose(vector_pointer);
     }
     
@@ -479,14 +420,3 @@ IMAGE_CONTEXT read_image(char *file_name) {
 
     return ctx;
 }
-
-
-/*
-int compare_vectors(PIXEL_ARRAY a, PIXEL_ARRAY b, int size) {
-    int diff = 0;
-    FOR(index, size * size) {
-        diff += ABS(VALUE(a++) - VALUE(b++));
-    }
-    return diff;
-}
-*/

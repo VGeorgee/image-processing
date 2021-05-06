@@ -29,7 +29,7 @@ double walsh_transform(unsigned char *target, int u, int v){
     double sum = 0;
     for(x = 0; x < 64; x++) {
         for(y = 0; y < 64; y++) {
-            sum += GET_PIXEL(target, x, y) * kernel[x][u] * kernel[y][v];
+            sum += (GET_PIXEL(target, x, y)) * kernel[x][u] * kernel[y][v];
         }
     }
     return sum * ((double) 1 / 64.0);
@@ -39,8 +39,8 @@ double walsh_transform(unsigned char *target, int u, int v){
 double *generate_feat_vectors(unsigned char *target, int uv){
     int number_of_vectors = 0;
     double *feat_vectors = (double *)calloc(uv * uv, sizeof(double));
-    for(int i = 0; i < uv; i++) {
-        for(int j = 0; j < uv; j++) {
+    for(int i = 1; i <= uv; i++) {
+        for(int j = 1; j <= uv; j++) {
             feat_vectors[number_of_vectors++] = walsh_transform(target, i, j);
         }
     }
