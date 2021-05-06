@@ -69,6 +69,7 @@ int shape_points_count;
 #define DISTINCT_BYTE_VALUES 256
 #define ZEROED_ARRAY(name, length) int name[length] = { 0 }
 
+#define CONCAT(str, char) (str)[str ## _length++] = char; (str)[str ## _length] = '\0'; 
 
 
 void convert_to_grayscale(unsigned char *target_buffer, unsigned char *original_image, IMAGE_CONTEXT ctx);
