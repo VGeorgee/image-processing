@@ -62,9 +62,7 @@ int segment(char **argv, int argc) {
     SAVE_IMAGE("output/gray-scaled.jpg", grayscale_image);
     CHANNELS = 1;
     
-  
     MAKE("output/binarized.jpg", binarized, grayscale_image, binarize_image);
-    
     ctx.image_start = binarized;
 
     NEW_LIST(IMAGE_CONTEXT, collection, MAX_NUMBER_OF_SHAPES);
@@ -79,7 +77,6 @@ int segment(char **argv, int argc) {
     save_collection(collection, collection_count, "");
 
     puts("Ran succesfully!");
-
 
     free(binarized);
     free(grayscale_image);
@@ -101,7 +98,6 @@ int extract(char **argv, int argc){
         return 1;
     }
 
-
     int index_of_img = get_index_of_param(argv, argc, "-in");
     if(index_of_img < 0){
         fprintf(stderr, "No input image provided!\n");
@@ -120,7 +116,7 @@ int extract(char **argv, int argc){
     calculate_feature_vectors(collection, collection_count);
 
     char extracted_characters[10000] = {'\0'};
-    int extracted_characters_lenght = 0;
+    int extracted_characters_length = 0;
 
     DEBUG("Matching feature vectors");
     int avg_width = 0;
@@ -132,7 +128,6 @@ int extract(char **argv, int argc){
         FOR(database_index, database_count){
             IMAGE_CONTEXT new_shape = collection[collection_index];
             IMAGE_CONTEXT learned_shape = database[database_index];
-            //printf("matching begin for indexes: |%d| |%d|\n", collection_index, database_index);
             
             int diff = compare_vectors_a(new_shape.feature_vectors, learned_shape.feature_vectors, NUMBER_OF_FEATURE_VECTORS);
            
@@ -147,17 +142,12 @@ int extract(char **argv, int argc){
             if(debug) printf("MATCHED: %3c\n", database[max_match_index].character);
             if(collection_index > 1){
                 if( collection[collection_index - 1].start_y >= collection[collection_index].start_y){
-                    extracted_characters[extracted_characters_lenght++] = '\n';
-                    extracted_characters[extracted_characters_lenght] = '\0';
+                    CONCAT(extracted_characters, '\n');
                 } else if( (collection[collection_index - 1].start_y +  collection[collection_index - 1].original_width + (avg_width / (double)collection_index) * 0.5) < collection[collection_index].start_y) {
-                    extracted_characters[extracted_characters_lenght++] = ' ';
-                    extracted_characters[extracted_characters_lenght] = '\0';
+                    CONCAT(extracted_characters, ' ');
                 }
             }
-            extracted_characters[extracted_characters_lenght++] = database[max_match_index].character;
-            extracted_characters[extracted_characters_lenght] = '\0';
-        } else {
-            //puts("NO MATCH FOUND!");
+            CONCAT(extracted_characters, database[max_match_index].character);
         }
     }
     DEBUG("Extracted text");
@@ -172,14 +162,6 @@ double compare_vectors_a(double *a, double *b, int count) {
     FOR(i, count) sum += ABS(a[i] - b[i]);
     return sum;
 }
-
-int compare_vectors_b(double *a, double *b, int count, int size) {
-    int sum = 0;
-    FOR_INCREMENT(i, count / (size / sizeof(double)), size) sum += memcmp(a, b, size) == 0;
-    return sum;
-}
-
-
 
 IMAGE_CONTEXT read_and_binarize_img(char *file_name) {
     IMAGE_CONTEXT ctx = read_image(file_name);
@@ -272,7 +254,6 @@ void collect_shapes(PIXEL_ARRAY original, IMAGE_CONTEXT *array, int *array_count
 
     int number_of_shapes = 0;
     char file_name[200] = {0};
-
 
     ITERATE_IMAGE_INTERLEAVED(1) {
         if(is_shape(PIXEL_OF_ITERATION(original))) {
@@ -389,7 +370,6 @@ void read_directory(const char *dir_prefix, const char *dir, const char start, c
     }
     *database_count = count;
 }
-
 
 
 double *read_feature_vector(const char *file_name) {
